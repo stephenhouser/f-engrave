@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleExecutable</key>
-	<string>f-engrave</string>
+	<string>f-engrave.sh</string>
 	<key>CFBundleGetInfoString</key>
-	<string>f-engrave</string>
+	<string>F-Engrave</string>
 	<key>CFBundleIconFile</key>
 	<string>f-engrave</string>
 	<key>CFBundleName</key>
-	<string>f-engrave</string>
+	<string>F-Engrave</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 </dict>

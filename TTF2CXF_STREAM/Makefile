@@ -4,10 +4,7 @@
 
 WIN_BASEDIR = freetype-2.3.5-1-lib
 
-all: mac
-
-mac:
-	g++ -o ttf2cxf_stream ttf2cxf_stream.cpp -lm -I/usr/X11/include/freetype2 -L/usr/X11/lib -lfreetype
+all: linux
 
 linux:
 	g++ -o ttf2cxf_stream ttf2cxf_stream.cpp -lm -I/usr/include/freetype2 -lfreetype
@@ -30,4 +27,6 @@ win:
 		-L$(WIN_BASEDIR)/lib                 \
 		$(WIN_BASEDIR)/lib/freetype.lib
 
+osx:
+	g++ -o ttf2cxf_stream ttf2cxf_stream.cpp -lm -I/usr/X11/include/freetype2 -L/usr/X11/lib -lfreetype
 
