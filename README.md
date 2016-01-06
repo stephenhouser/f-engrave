@@ -1,13 +1,17 @@
-# f-engrave
+# F-Engrave
 Modifications and Packaging of Scorchworks F-Engrave to work on OSX.
 
 Original F-Engrave and instructions are at Scorchworks:
 
 >    http://www.scorchworks.com/Fengrave/fengrave.html
 
+## Compiling
+
 In the OSX directory, run `make`. This will create a clickable OSX Application
 named `F-Engrave.app` that can then be distributed or moved to your Applications
 folder.
+
+## Additional Programs
 
 Includes `ttf2cxf` modified makefile for OS X with X11 in `/usr/X11` to
 allow engraving of TrueType (`ttf`) fonts.
