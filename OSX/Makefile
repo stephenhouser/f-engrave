@@ -1,5 +1,5 @@
 
-APP=../F-Engrave.app
+APP=F-Engrave.app
 VER=154
 
 all: ttf2cxf app
