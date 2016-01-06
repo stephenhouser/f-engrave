@@ -6,9 +6,9 @@ all: ttf2cxf app
 
 ttf2cxf:
 	@(cd ../TTF2CXF_STREAM; make osx)
-    
+
 app:
-	@mkdir $(APP) $(APP)/Contents $(APP)/Contents/MacOS $(APP)/Contents/Resources
+	+@[ -d $(APP) ] || mkdir -p $(APP) $(APP)/Contents $(APP)/Contents/MacOS $(APP)/Contents/Resources
 
 	@cp ../f-engrave-$(VER).py $(APP)/Contents/MacOS
 	@cp ../TTF2CXF_STREAM/ttf2cxf_stream $(APP)/Contents/MacOS
