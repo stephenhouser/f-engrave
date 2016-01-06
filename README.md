@@ -29,7 +29,7 @@ in `/usr/local/bin` (e.g. Homebrew) then bitmap (`PBM`) files can be read and
 utilized.
 
 - - -
-(The following is from Scorchworks F-Engrave website)
+The following is from [Scorchworks F-Engrave Site][http://www.scorchworks.com/Fengrave/fengrave.html]:
 
 ## Background
 F-Engrave is a text to g-code program that is written in python and is based on the text engraving software ([engrave-11][http://wiki.linuxcnc.org/cgi-bin/wiki.pl?Simple_LinuxCNC_G-Code_Generators#Text_Engraving_Software]) available in the [LinuxCNCKnowledgeBase][http://wiki.linuxcnc.org/cgi-bin/wiki.pl?LinuxCNCKnowledgeBase]. The name F-Engrave is simply the predecessor programs name "engrave" with an "F" slapped on to indicate that the program can perform more formating functions like justification (left, right and center) and text on a circle. When I first released the program I had no idea I was going to add v-carving or DXF features so the name does not reflect any of those features. F-Engrave is a free open source program released under the [GNU General Public License (GPL) Version 3][http://www.gnu.org/licenses/]. There is not much left of the original engrave-11 script but I needed a jumping off point. One of the things that remained intact for the most part is the CXF font reading. (although I tweaked it to accept a second variation of the CXF font format.)
@@ -50,3 +50,5 @@ F-Engrave is a text to g-code program that is written in python and is based on 
 - Use inches or mm as export units 
 - Customizable G-Code preamble and postamble 
 - Usable as an LinuxCNC Axis filter program (open the f-engrave.py file from within LinuxCNC Axis File-Open-f-engrave.py. when you are finished with your text select File-Write To Axis and Exit, This option only existed when executed from within Axis)
+
+Please see the official [Scorchworks F-Engrave website][http://www.scorchworks.com/Fengrave/fengrave.html] for the full details.
