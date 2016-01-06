@@ -1,0 +1,23 @@
+
+
+1.)  At a Linux command prompt type "make install" to create the ttf2cxf_stream executable.
+The dependancies for ttf2cxf_stream may require that the following command be performed first:
+	
+
+sudo apt-get update
+
+sudo apt-get install g++
+
+sudo apt-get install libfreetype6-dev 
+(Note: if you are using a non-Debian based Linux distribution the installation commands may vary)
+
+
+
+
+2.)  When F-Engrave is executed it will look for the "ttf2cxf_stream" executable. if it is found and working f-engrave will use it to read True Type font (TTF) files in the font directory.
+
+  
+F-Engrave will function properly without the ttf2cxf executable but it will not show or read .ttf font files.
+
+Additional setup information can be found at:
+http://home.comcast.net/~sskroch/Fengrave/fengrave_setup.html

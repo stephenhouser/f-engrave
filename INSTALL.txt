@@ -1,0 +1,10 @@
+
+
+For True Type fonts to be read by F-engrave the ttf2cxf_stream program needs to be compiled and placed in the system path or the directory from which f-engrave-xx.py is called.
+
+F-Engrave will function properly without the ttf2cxf executable but it will not show or read .ttf files.
+
+The fengrave.ico and py2exe_setup.py files are used to create the windows binary files with py2exe. (they are not required for anything else)
+
+Additional setup information can be found at:
+http://www.scorchworks.com/Fengrave/fengrave_setup.html
