@@ -1,9 +1,17 @@
 # F-Engrave
-Modifications and Packaging of Scorchworks F-Engrave to work on OSX.
+Packaging of Scorchworks F-Engrave as an OSX Application
 
-Original F-Engrave and instructions are at Scorchworks:
+F-Engrave generates 'GCODE' for Computer Numerical Control (CNC) systems from
+text and bitmaps. It "Suppoprts Engraving and V-Carving, Uses CXF and TTF fonts,
+Imports DXF and Bitmap images".
+
+The official F-Engrave and instructions are at Scorchworks:
 
 >    http://www.scorchworks.com/Fengrave/fengrave.html
+
+This fork is merely to add packaging for OSX systems, creating a clickable
+'Applicaion' that can be installed on any OSX system. This eliminates having
+to run F-Engrave from a Terminal prompt.
 
 ## Compiling
 
