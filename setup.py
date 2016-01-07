@@ -10,8 +10,8 @@ Usage:
 import sys
 from setuptools import setup
 
-mainscript = 'f-engrave-154.py'
-version = "1.54"
+mainscript = 'f-engrave.py'
+version = "1.55"
 url = "https://github.com/stephenhouser/f-engrave"
 
 if sys.platform == 'darwin':
@@ -35,7 +35,7 @@ elif sys.platform == 'win32':
             'optimize': 0
         }),
         zipfile=None,
-        console=[{'script':'f-engrave-154.py', 'icon_resources':[(0,'fengrave.ico'),(0,'fengrave.ico')]}]
+        console=[{'script':'f-engrave.py', 'icon_resources':[(0,'fengrave.ico'),(0,'fengrave.ico')]}]
      )
 else:
      extra_options = dict(
