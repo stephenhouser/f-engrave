@@ -15,14 +15,15 @@ to run F-Engrave from a Terminal prompt.
 
 ## Compiling
 
-In the OSX directory, run `make`. This will create a clickable OSX Application
-named `F-Engrave.app` that can then be distributed or moved to your Applications
-folder.
+In the main directory run `build.sh`.  This will create a clickable OSX Application
+named `f-engrave-XXX.app` (where XXX is the version number of f-engrave) that can 
+then be distributed or moved to your Applications folder.
 
-## Additional Programs
+## Dependencies
 
 Includes `ttf2cxf` modified makefile for OS X with X11 in `/usr/X11` to
-allow engraving of TrueType (`ttf`) fonts.
+allow engraving of TrueType (`ttf`) fonts. Will need `libfreetype` installed to
+compile.
 
 Does not include `potrace`. If `potrace` is installed in the system path or 
 in `/usr/local/bin` (e.g. Homebrew) then bitmap (`PBM`) files can be read and
