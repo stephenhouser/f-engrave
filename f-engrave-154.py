@@ -1649,6 +1649,8 @@ class Application(Frame):
         #    fmessage("Python Imaging Library (PIL) was not found...Bummer")
         #    fmessage("    PIL enables more image file formats.")
 
+        os.environ["PATH"] += os.pathsep + "." + os.pathsep + "/usr/local/bin"
+        
         cmd = ["ttf2cxf_stream","TEST","STDOUT"]
         try:
             p = Popen(cmd, stdout=PIPE, stderr=PIPE)
