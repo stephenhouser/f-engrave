@@ -16,14 +16,26 @@ to run F-Engrave from a Terminal prompt.
 ## Compiling
 
 In the main directory run `build.sh`.  This will create a clickable OSX Application
-named `f-engrave-XXX.app` (where XXX is the version number of f-engrave) that can 
-then be distributed or moved to your Applications folder.
+named `f-engrave.app` that can then be distributed or moved to your Applications folder.
+
+There are a few complications with compilation that are addressed in the `build.sh` script. 
+I've been able to compile everything on a freshly installed macOS 10.11.6 system after 
+installing the dependencies listed below. 
+
+Specifically:
+
+* There are dependencies (see below)
+* `py2app` needs to be run with system restrictions changed (see `build.sh`)
+* `py2app` does not copy file permissions for resources (see `build.sh`)
 
 ## Dependencies
 
+* `Xcode Command Line Tools` (for `g++`)
+* `XQuartz` (for `libfreetype2`)
+
 Includes `ttf2cxf` modified makefile for OS X with X11 in `/usr/X11` to
-allow engraving of TrueType (`ttf`) fonts. Will need `libfreetype` installed to
-compile.
+allow engraving of TrueType (`ttf`) fonts. This adds the requirement for
+`XQuartz` and it's provided library `libfreetype2` installed to compile.
 
 Does not include `potrace`. If `potrace` is installed in the system path or 
 in `/usr/local/bin` (e.g. Homebrew) then bitmap (`PBM`) files can be read and

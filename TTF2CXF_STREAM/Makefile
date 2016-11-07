@@ -7,7 +7,7 @@ WIN_BASEDIR = freetype-2.3.5-1-lib
 all: linux
 
 linux:
-	g++ -o ttf2cxf_stream ttf2cxf_stream.cpp -lm -I/usr/include/freetype2 -lfreetype
+	g++ -o ttf2cxf_stream ttf2cxf_stream.cpp -lm -I/usr/local/include/freetype2 -lfreetype
 
 install: linux
 	@echo "Installing... ttf2cxf_stream"

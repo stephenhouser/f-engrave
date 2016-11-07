@@ -242,13 +242,10 @@
                  - Changed flip normals behavior, There are now two options: Flip Normals and Add Box (Flip Normals)
                  - Changed prismatic cut to allow the use of either of the two Flip normals options (one of the two
                    Flip normals options must be selected for the inlay cuts to be performed properly
-                 - Added DXF Export option (with and without auto closed loops)
-				 
-    Version 1.60 - Fixed divide by zero error in some cleanup sceneries.
-    
+                 - Added DXF Export option (with and without auto closed loops)	 
     """
 
-version = '1.60'
+version = '1.59'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 
@@ -1669,8 +1666,6 @@ class Application(Frame):
         #    fmessage("Python Imaging Library (PIL) was not found...Bummer")
         #    fmessage("    PIL enables more image file formats.")
 
-        os.environ["PATH"] += os.pathsep + "." + os.pathsep + "/usr/local/bin"
-        
         cmd = ["ttf2cxf_stream","TEST","STDOUT"]
         try:
             p = Popen(cmd, stdout=PIPE, stderr=PIPE)
@@ -5142,7 +5137,7 @@ class Application(Frame):
                 self.Checkbutton_useIMGsize.place_forget()
 
                 # Left Column #
-                w_label=120 #90
+                w_label=90
                 w_entry=60
                 w_units=35
 
@@ -5296,15 +5291,15 @@ class Application(Frame):
                 self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
 
                 Ybut=self.h-60
-                self.V_Carve_Calc.place(x=x_label_R, y=Ybut, height=30)
+                self.V_Carve_Calc.place(x=x_label_R, y=Ybut, width=100, height=30)
 
                 Ybut=self.h-105
                 self.Radio_Cut_E.place(x=x_label_R, y=Ybut, width=185, height=23)
                 Ybut=self.h-85
                 self.Radio_Cut_V.place(x=x_label_R, y=Ybut, width=185, height=23)
 
-                self.PreviewCanvas.configure( width = self.w-485, height = self.h-160 )
-                self.PreviewCanvas_frame.place(x=250, y=10)
+                self.PreviewCanvas.configure( width = self.w-455, height = self.h-160 )
+                self.PreviewCanvas_frame.place(x=220, y=10)
                 self.Input_Label.place(x=222, y=self.h-130, width=112, height=21, anchor=W)
                 self.Input_frame.place(x=222, y=self.h-110, width=self.w-455, height=75)
 
@@ -5317,7 +5312,7 @@ class Application(Frame):
                 self.Label_flip.configure(text="Flip Image")
                 self.Label_mirror.configure(text="Mirror Image")
                 # Left Column #
-                w_label=120 #90
+                w_label=90
                 w_entry=60
                 w_units=35
 
@@ -5463,15 +5458,15 @@ class Application(Frame):
                 self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
 
                 Ybut=self.h-60
-                self.V_Carve_Calc.place(x=x_label_R+offset_R, y=Ybut, height=30)
+                self.V_Carve_Calc.place(x=x_label_R+offset_R, y=Ybut, width=100, height=30)
 
                 Ybut=self.h-105
                 self.Radio_Cut_E.place(x=x_label_R+offset_R, y=Ybut, width=w_label, height=23)
                 Ybut=self.h-85
                 self.Radio_Cut_V.place(x=x_label_R+offset_R, y=Ybut, width=w_label, height=23)
 
-                self.PreviewCanvas.configure( width = self.w-270, height = self.h-45 )
-                self.PreviewCanvas_frame.place(x=260, y=10)
+                self.PreviewCanvas.configure( width = self.w-240, height = self.h-45 )
+                self.PreviewCanvas_frame.place(x=230, y=10)
                 self.Input_Label.place_forget()
                 self.Input_frame.place_forget()
 
@@ -7839,45 +7834,43 @@ class Application(Frame):
                     y_pmin = y_pmin+offset
                     Ysize = y_pmax - y_pmin
                     Ysteps = ceil( Ysize /(clean_dia*clean_step) )
-                    if (Ysteps>0):
-                        dY = Ysize / Ysteps
-                        for iY in range(0,int(Ysteps+1)):
-                            y = y_pmin + iY/Ysteps * (y_pmax-y_pmin)
-                            intXYlist=[]
-                            intXYlist = self.DetectIntersect([x_pmin-1,y],[x_pmax+1,y],loop_coords,XY_T_F=True)
-                            intXY_len = len(intXYlist)
+                    dY = Ysize / Ysteps
+                    for iY in range(0,int(Ysteps+1)):
+                        y = y_pmin + iY/Ysteps * (y_pmax-y_pmin)
+                        intXYlist=[]
+                        intXYlist = self.DetectIntersect([x_pmin-1,y],[x_pmax+1,y],loop_coords,XY_T_F=True)
+                        intXY_len = len(intXYlist)
 
-                            for i in range(edge,intXY_len-1-edge,2):
-                                x1 = intXYlist[i][0]
-                                y1 = intXYlist[i][1]
-                                x2 = intXYlist[i+1][0]
-                                y2 = intXYlist[i+1][1]
-                                if ((x2-x1) > offset*2):
-                                    loop_cnt=loop_cnt+1
-                                    Xclean_coords.append([x1+offset,y1,loop_cnt])
-                                    Xclean_coords.append([x2-offset,y2,loop_cnt])
+                        for i in range(edge,intXY_len-1-edge,2):
+                            x1 = intXYlist[i][0]
+                            y1 = intXYlist[i][1]
+                            x2 = intXYlist[i+1][0]
+                            y2 = intXYlist[i+1][1]
+                            if ((x2-x1) > offset*2):
+                                loop_cnt=loop_cnt+1
+                                Xclean_coords.append([x1+offset,y1,loop_cnt])
+                                Xclean_coords.append([x2-offset,y2,loop_cnt])
                             
                 if (self.clean_Y.get() == 1):                    
                     x_pmax = x_pmax-offset
                     x_pmin = x_pmin+offset
                     Xsize = x_pmax - x_pmin
                     Xsteps = ceil( Xsize /(clean_dia*clean_step) )
-                    if (Xsteps>0):
-                        dX = Xsize / Xsteps
-                        for iX in range(0,int(Xsteps+1)):
-                            x = x_pmin + iX/Xsteps * (x_pmax-x_pmin)
-                            intXYlist=[]
-                            intXYlist = self.DetectIntersect([x,y_pmin-1],[x,y_pmax+1],loop_coords,XY_T_F=True)
-                            intXY_len = len(intXYlist)
-                            for i in range(edge,intXY_len-1-edge,2):
-                                x1 = intXYlist[i][0]
-                                y1 = intXYlist[i][1]
-                                x2 = intXYlist[i+1][0]
-                                y2 = intXYlist[i+1][1]
-                                if ((y2-y1) > offset*2):
-                                    loop_cnt=loop_cnt+1
-                                    Yclean_coords.append([x1,y1+offset,loop_cnt])
-                                    Yclean_coords.append([x2,y2-offset,loop_cnt])                
+                    dX = Xsize / Xsteps
+                    for iX in range(0,int(Xsteps+1)):
+                        x = x_pmin + iX/Xsteps * (x_pmax-x_pmin)
+                        intXYlist=[]
+                        intXYlist = self.DetectIntersect([x,y_pmin-1],[x,y_pmax+1],loop_coords,XY_T_F=True)
+                        intXY_len = len(intXYlist)
+                        for i in range(edge,intXY_len-1-edge,2):
+                            x1 = intXYlist[i][0]
+                            y1 = intXYlist[i][1]
+                            x2 = intXYlist[i+1][0]
+                            y2 = intXYlist[i+1][1]
+                            if ((y2-y1) > offset*2):
+                                loop_cnt=loop_cnt+1
+                                Yclean_coords.append([x1,y1+offset,loop_cnt])
+                                Yclean_coords.append([x2,y2-offset,loop_cnt])                
             ## END NEW STUFF FOR STRAIGHT BIT ##
 
             #######################################
@@ -8326,18 +8319,18 @@ class Application(Frame):
 
         D_Yloc=D_Yloc+D_dY
         self.Label_arcfit = Label(gen_settings,text="Arc Fitting")
-        self.Label_arcfit.place(x=xd_label_L, y=D_Yloc, width=w_label, height=23)
+        self.Label_arcfit.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
         self.Radio_arcfit_none = Radiobutton(gen_settings,text="None", \
-                                            value="none", width="60", anchor=W)
-        self.Radio_arcfit_none.place(x=xd_entry_L, y=D_Yloc, width=60, height=23)
+                                            value="none", width="110", anchor=W)
+        self.Radio_arcfit_none.place(x=w_label+x_radio_offset, y=D_Yloc, width=90, height=23)
         self.Radio_arcfit_none.configure(variable=self.arc_fit )
         self.Radio_arcfit_radius = Radiobutton(gen_settings,text="Radius Format", \
-                                            value="radius", width="130", anchor=W)
-        self.Radio_arcfit_radius.place(x=xd_entry_L+65, y=D_Yloc, width=120, height=23)
+                                            value="radius", width="110", anchor=W)
+        self.Radio_arcfit_radius.place(x=w_label+x_radio_offset+65, y=D_Yloc, width=100, height=23)
         self.Radio_arcfit_radius.configure(variable=self.arc_fit )
         self.Radio_arcfit_center = Radiobutton(gen_settings,text="Center Format", \
-                                            value="center", width="130", anchor=W)
-        self.Radio_arcfit_center.place(x=xd_entry_L+65+125, y=D_Yloc, width=120, height=23)
+                                            value="center", width="110", anchor=W)
+        self.Radio_arcfit_center.place(x=w_label+x_radio_offset+65+115, y=D_Yloc, width=100, height=23)
         self.Radio_arcfit_center.configure(variable=self.arc_fit )
 
         D_Yloc=D_Yloc+D_dY
@@ -8369,25 +8362,28 @@ class Application(Frame):
         self.Checkbutton_var_dis.configure(variable=self.var_dis)
 
         D_Yloc=D_Yloc+D_dY
+        font_entry_width=215
         self.Label_Fontdir = Label(gen_settings,text="Font Directory")
         self.Label_Fontdir.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
         self.Entry_Fontdir = Entry(gen_settings,width="15")
-        self.Entry_Fontdir.place(x=xd_entry_L, y=D_Yloc, width=240, height=23)
+        self.Entry_Fontdir.place(x=xd_entry_L, y=D_Yloc, width=font_entry_width, height=23)
         self.Entry_Fontdir.configure(textvariable=self.fontdir)
         self.Fontdir = Button(gen_settings,text="Select Dir")
-        self.Fontdir.place(x=xd_entry_L+250, y=D_Yloc, height=23)
+        self.Fontdir.place(x=xd_entry_L+font_entry_width+10, y=D_Yloc, width=w_label-80, height=23)
 
         D_Yloc=D_Yloc+D_dY
         self.Label_Hcalc = Label(gen_settings,text="Height Calculation")
         self.Label_Hcalc.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)        
-        self.Radio_Hcalc_ALL = Radiobutton(gen_settings,text="Max All", \
-                                            value="max_all", width="110", anchor=W)
-        self.Radio_Hcalc_ALL.place(x=xd_entry_L+110, y=D_Yloc, width=90, height=23)
-        self.Radio_Hcalc_ALL.configure(variable=self.H_CALC )
+
         self.Radio_Hcalc_USE = Radiobutton(gen_settings,text="Max Used", \
                                             value="max_use", width="110", anchor=W)
-        self.Radio_Hcalc_USE.place(x=xd_entry_L, y=D_Yloc, width=90, height=23)
+        self.Radio_Hcalc_USE.place(x=w_label+x_radio_offset, y=D_Yloc, width=90, height=23)
         self.Radio_Hcalc_USE.configure(variable=self.H_CALC )
+
+        self.Radio_Hcalc_ALL = Radiobutton(gen_settings,text="Max All", \
+                                            value="max_all", width="110", anchor=W)
+        self.Radio_Hcalc_ALL.place(x=w_label+x_radio_offset+90, y=D_Yloc, width=90, height=23)
+        self.Radio_Hcalc_ALL.configure(variable=self.H_CALC )
 
         if self.input_type.get() != "text":
                 self.Entry_Fontdir.configure(state="disabled")
@@ -8485,18 +8481,21 @@ class Application(Frame):
         self.Label_cutter_type = Label(vcarve_settings,text="Cutter Type")
         self.Label_cutter_type.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
 
-        self.Radio_Type_VBIT = Radiobutton(vcarve_settings,text="V-Bit", value="VBIT", anchor=W)
-        self.Radio_Type_VBIT.place(x=xd_entry_L, y=D_Yloc, height=21)
+        self.Radio_Type_VBIT = Radiobutton(vcarve_settings,text="V-Bit", value="VBIT",
+                                         width="100", anchor=W)
+        self.Radio_Type_VBIT.place(x=xd_entry_L, y=D_Yloc, width=w_label, height=21)
         self.Radio_Type_VBIT.configure(variable=self.bit_shape)
 
         D_Yloc=D_Yloc+24
-        self.Radio_Type_BALL = Radiobutton(vcarve_settings,text="Ball Nose", value="BALL", anchor=W)
-        self.Radio_Type_BALL.place(x=xd_entry_L, y=D_Yloc, height=21)
+        self.Radio_Type_BALL = Radiobutton(vcarve_settings,text="Ball Nose", value="BALL",
+                                         width="100", anchor=W)
+        self.Radio_Type_BALL.place(x=xd_entry_L, y=D_Yloc, width=w_label, height=21)
         self.Radio_Type_BALL.configure(variable=self.bit_shape)
 
         D_Yloc=D_Yloc+24
-        self.Radio_Type_STRAIGHT = Radiobutton(vcarve_settings,text="Straight", value="FLAT", anchor=W)
-        self.Radio_Type_STRAIGHT.place(x=xd_entry_L, y=D_Yloc, height=21)
+        self.Radio_Type_STRAIGHT = Radiobutton(vcarve_settings,text="Straight", value="FLAT",
+                                         width="100", anchor=W)
+        self.Radio_Type_STRAIGHT.place(x=xd_entry_L, y=D_Yloc, width=w_label, height=21)
         self.Radio_Type_STRAIGHT.configure(variable=self.bit_shape)
 
         self.bit_shape.trace_variable("w", self.Entry_Bit_Shape_var_Callback)
@@ -8732,13 +8731,13 @@ class Application(Frame):
 
         self.Checkbutton_clean_P = Checkbutton(vcarve_settings,text="P", anchor=W)
         self.Checkbutton_clean_P.configure(variable=self.clean_P)
-        self.Checkbutton_clean_P.place(x=xd_entry_L, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_clean_P.place(x=xd_entry_L, y=D_Yloc, width=w_entry+40, height=23)
         self.Checkbutton_clean_X = Checkbutton(vcarve_settings,text="X", anchor=W)
         self.Checkbutton_clean_X.configure(variable=self.clean_X)
-        self.Checkbutton_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=w_entry+40, height=23)
         self.Checkbutton_clean_Y = Checkbutton(vcarve_settings,text="Y", anchor=W)
         self.Checkbutton_clean_Y.configure(variable=self.clean_Y)
-        self.Checkbutton_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=w_entry+40, height=23)
 
         D_Yloc=D_Yloc+12
 
@@ -8762,13 +8761,13 @@ class Application(Frame):
 
         self.Checkbutton_v_clean_P = Checkbutton(vcarve_settings,text="P", anchor=W)
         self.Checkbutton_v_clean_P.configure(variable=self.v_clean_P)
-        self.Checkbutton_v_clean_P.place(x=xd_entry_L, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_v_clean_P.place(x=xd_entry_L, y=D_Yloc, width=w_entry+40, height=23)
         self.Checkbutton_v_clean_X = Checkbutton(vcarve_settings,text="X", anchor=W)
         self.Checkbutton_v_clean_X.configure(variable=self.v_clean_X)
-        self.Checkbutton_v_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_v_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=w_entry+40, height=23)
         self.Checkbutton_v_clean_Y = Checkbutton(vcarve_settings,text="Y", anchor=W)
         self.Checkbutton_v_clean_Y.configure(variable=self.v_clean_Y)
-        self.Checkbutton_v_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_v_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=w_entry+40, height=23)
 
         ## V-Bit Picture ##
         self.PHOTO = PhotoImage(format='gif',data=
@@ -8798,7 +8797,7 @@ class Application(Frame):
         Xbut=int(vcarve_settings.winfo_width()/2)
 
         self.VCARVE_Recalculate = Button(vcarve_settings,text="Calculate V-Carve", command=self.VCARVE_Recalculate_Click)
-        self.VCARVE_Recalculate.place(x=Xbut, y=Ybut,  height=30, anchor="e")
+        self.VCARVE_Recalculate.place(x=Xbut, y=Ybut, width=130, height=30, anchor="e")
 
 
         if self.cut_type.get() == "v-carve":
