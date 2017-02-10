@@ -235,10 +235,24 @@
     Version 1.57 - Fixed feed rate. Changes in 1.56 resulted in feed rate not being written to g-code file.
                      
     Version 1.58 - Fixed some special cases which resulted in errors being thrown (v-carve single lines)
-                 - Changed the default settings to be more compatable with incomplete g-code interpretors like GRBL
+                 - Changed the default settings to be more compatible with incomplete g-code interpretors like GRBL
+				 
+    Version 1.59 - Fixed bug in arc fitting
+                 - Rewrote Cleanup operation calculations (fixes a bug that resulted in some areas not being cleaned up
+                 - Changed flip normals behavior, There are now two options: Flip Normals and Add Box (Flip Normals)
+                 - Changed prismatic cut to allow the use of either of the two Flip normals options (one of the two
+                   Flip normals options must be selected for the inlay cuts to be performed properly
+                 - Added DXF Export option (with and without auto closed loops)
+				 
+    Version 1.60 - Fixed divide by zero error in some cleanup sceneries.
+
+    Version 1.61 - Fixed a bug that prevented opening DXF files that contain no features with positive Y coordinates
+
+	Version 1.62 - Fixed a bug that resulted in bad cleanup tool paths in some situations
+    
     """
 
-version = '1.58'
+version = '1.62'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 
@@ -276,10 +290,10 @@ if PIL == True:
         from PIL import ImageOps
         import _imaging
     except:
-        try:
-            from PIL.Image import core as _imaging # for debian jessie
-        except:
-            PIL = False
+        #try:
+        #    from PIL.Image import core as _imaging # for debian jessie
+        #except:
+        PIL = False
 
 
 from math import *
@@ -1729,6 +1743,7 @@ class Application(Frame):
         self.ext_char   = BooleanVar()
         self.var_dis    = BooleanVar()
         self.useIMGsize = BooleanVar()
+        self.plotbox    = BooleanVar()
 
         self.clean_P    = BooleanVar()
         self.clean_X    = BooleanVar()
@@ -1762,7 +1777,7 @@ class Application(Frame):
         self.PLUNGE     = StringVar()
         self.fontfile   = StringVar()
         self.H_CALC     = StringVar()
-        self.plotbox    = StringVar()
+        #self.plotbox    = StringVar()
         self.boxgap     = StringVar()
         self.fontdir    = StringVar()
         self.cut_type   = StringVar()
@@ -1813,6 +1828,7 @@ class Application(Frame):
         self.upper.set(1)
         self.fontdex.set(0)
         self.useIMGsize.set(0)
+        self.plotbox.set(0)
 
         self.v_flop.set(0)
         self.v_pplot.set(0)
@@ -1850,7 +1866,7 @@ class Application(Frame):
         self.PLUNGE.set("0.0")
         self.fontfile.set(" ")
         self.H_CALC.set("max_use")
-        self.plotbox.set("no_box")
+        #self.plotbox.set("no_box")
         self.boxgap.set("0.25")
         self.fontdir.set("fonts")
         self.cut_type.set("engrave")    # Options are "engrave" and "v-carve"
@@ -2067,6 +2083,7 @@ class Application(Frame):
         
         self.Label_Yscale = Label(self.master,text="Text Height", anchor=CENTER)
         self.Label_Yscale_u = Label(self.master,textvariable=self.units, anchor=W)
+        self.Label_Yscale_pct = Label(self.master,text="%", anchor=W)
         self.Entry_Yscale = Entry(self.master,width="15")
         self.Entry_Yscale.configure(textvariable=self.YSCALE)
         self.Entry_Yscale.bind('<Return>', self.Recalculate_Click)
@@ -2337,6 +2354,7 @@ class Application(Frame):
         top_File = Menu(self.menuBar, tearoff=0)
         top_File.add("command", label = "Open F-engrave G-Code File", \
                          command = self.menu_File_Open_G_Code_File)
+						 
         if self.POTRACE_AVAIL == TRUE:
             top_File.add("command", label = "Open DXF/Bitmap File", \
                              command = self.menu_File_Open_DXF_File)
@@ -2346,8 +2364,12 @@ class Application(Frame):
 
         top_File.add("command", label = "Save G-Code File", \
                          command = self.menu_File_Save_G_Code_File)
-        top_File.add("command", label = "Save SVG File",    \
+        top_File.add("command", label = "Export SVG File",    \
                          command = self.menu_File_Save_SVG_File)
+        top_File.add("command", label = "Export DXF File",    \
+                         command = self.menu_File_Save_DXF_File)
+        top_File.add("command", label = "Export DXF File (close loops)", \
+                         command = self.menu_File_Save_DXF_File_close_loops)
         if IN_AXIS:
             top_File.add("command", label = "Write To Axis and Exit", \
                              command = self.WriteToAxis)
@@ -2604,6 +2626,7 @@ class Application(Frame):
             self.gcode.append('(fengrave_set ext_char    %s )' %( int(self.ext_char.get())      ))
             self.gcode.append('(fengrave_set useIMGsize  %s )' %( int(self.useIMGsize.get())    ))
             self.gcode.append('(fengrave_set no_comments %s )' %( int(self.no_comments.get())   ))
+            self.gcode.append('(fengrave_set plotbox     %s )' %( int(self.plotbox.get())       ))
 
 
             # STRING.get()
@@ -2631,7 +2654,7 @@ class Application(Frame):
             self.gcode.append('(fengrave_set PLUNGE     %s )' %( self.PLUNGE.get()     ))
             self.gcode.append('(fengrave_set fontfile   \042%s\042 )' %( self.fontfile.get() ))
             self.gcode.append('(fengrave_set H_CALC     %s )' %( self.H_CALC.get()     ))
-            self.gcode.append('(fengrave_set plotbox    %s )' %( self.plotbox.get()    ))
+            #self.gcode.append('(fengrave_set plotbox    %s )' %( self.plotbox.get()    ))
             self.gcode.append('(fengrave_set boxgap     %s )' %( self.boxgap.get()    ))
             self.gcode.append('(fengrave_set cut_type    %s )' %( self.cut_type.get()    ))
             self.gcode.append('(fengrave_set bit_shape   %s )' %( self.bit_shape.get() ))
@@ -2754,10 +2777,9 @@ class Application(Frame):
         rough_again = False
 
         if self.cut_type.get() == "engrave" or self.bit_shape.get() == "FLAT":
-            #print "engraving...."
             ecoords = []
             if (self.bit_shape.get() == "FLAT") and (self.cut_type.get() != "engrave"):
-                Acc = float(self.v_step_len.get())*1.5
+                Acc = float(self.v_step_len.get())*1.5 #fudge factor
                 ###################################
                 ###   Create Flat Cut ECOORDS   ###
                 ###################################
@@ -3365,10 +3387,180 @@ class Application(Frame):
             Radius_in = 0.0
 
         Thick     =  float(self.STHICK.get() )
-        if self.plotbox.get() != "no_box":
+        #if self.plotbox.get() != "no_box":
+        if self.plotbox.get():
             if Radius_in != 0:
                 Delta = Thick/2 + float(self.boxgap.get())
         self.svgcode.append('</svg>')
+
+
+
+    ##################################################
+    ###  Begin Dxf_Write G-Code Writing Function   ###
+    ##################################################
+    def WriteDXF(self,close_loops=False):
+
+        if close_loops:
+            self.V_Carve_It(clean_flag=0,DXF_FLAG = close_loops)
+        
+        dxf_code = []
+        # Create a header section just in case the reading software needs it
+        dxf_code.append("999")
+        dxf_code.append("DXF created by G-Code Ripper <by Scorch, www.scorchworks.com>")
+        dxf_code.append("0")
+        dxf_code.append("SECTION")
+        dxf_code.append("2")
+        dxf_code.append("HEADER")
+        #dxf_code.append("9")
+        #dxf_code.append("$INSUNITS")
+        #dxf_code.append("70")
+        #dxf_code.append("1") #units 1 = Inches; 4 = Millimeters;
+        dxf_code.append("0")
+        dxf_code.append("ENDSEC")
+
+        #         
+        #Tables Section
+        #These can be used to specify predefined constants, line styles, text styles, view 
+        #tables, user coordinate systems, etc. We will only use tables to define some layers 
+        #for use later on. Note: not all programs that support DXF import will support 
+        #layers and those that do usually insist on the layers being defined before use
+        #
+        # The following will initialise layers 1 and 2 for use with moves and rapid moves.
+        dxf_code.append("0")
+        dxf_code.append("SECTION")
+        dxf_code.append("2")
+        dxf_code.append("TABLES")
+        dxf_code.append("0")
+        dxf_code.append("TABLE")
+        dxf_code.append("2")
+        dxf_code.append("LTYPE")
+        dxf_code.append("70")
+        dxf_code.append("1")
+        dxf_code.append("0")
+        dxf_code.append("LTYPE")
+        dxf_code.append("2")
+        dxf_code.append("CONTINUOUS")
+        dxf_code.append("70")
+        dxf_code.append("64")
+        dxf_code.append("3")
+        dxf_code.append("Solid line")
+        dxf_code.append("72")
+        dxf_code.append("65")
+        dxf_code.append("73")
+        dxf_code.append("0")
+        dxf_code.append("40")
+        dxf_code.append("0.000000")
+        dxf_code.append("0")
+        dxf_code.append("ENDTAB")
+        dxf_code.append("0")
+        dxf_code.append("TABLE")
+        dxf_code.append("2")
+        dxf_code.append("LAYER")
+        dxf_code.append("70")
+        dxf_code.append("6")
+        dxf_code.append("0")
+        dxf_code.append("LAYER")
+        dxf_code.append("2")
+        dxf_code.append("1")
+        dxf_code.append("70")
+        dxf_code.append("64")
+        dxf_code.append("62")
+        dxf_code.append("7")
+        dxf_code.append("6")
+        dxf_code.append("CONTINUOUS")
+        dxf_code.append("0")
+        dxf_code.append("LAYER")
+        dxf_code.append("2")
+        dxf_code.append("2")
+        dxf_code.append("70")
+        dxf_code.append("64")
+        dxf_code.append("62")
+        dxf_code.append("7")
+        dxf_code.append("6")
+        dxf_code.append("CONTINUOUS")
+        dxf_code.append("0")
+        dxf_code.append("ENDTAB")
+        dxf_code.append("0")
+        dxf_code.append("TABLE")
+        dxf_code.append("2")
+        dxf_code.append("STYLE")
+        dxf_code.append("70")
+        dxf_code.append("0")
+        dxf_code.append("0")
+        dxf_code.append("ENDTAB")
+        dxf_code.append("0")
+        dxf_code.append("ENDSEC")
+        
+        #This block section is not necessary but apperantly it's good form to include one anyway.
+        #The following is an empty block section.
+        dxf_code.append("0")
+        dxf_code.append("SECTION")
+        dxf_code.append("2")
+        dxf_code.append("BLOCKS")
+        dxf_code.append("0")
+        dxf_code.append("ENDSEC")
+
+        # Start entities section
+        dxf_code.append("0")
+        dxf_code.append("SECTION")
+        dxf_code.append("2")
+        dxf_code.append("ENTITIES")
+        dxf_code.append("  0")
+
+        #################################
+        ## GCODE WRITING for Dxf_Write ##
+        #################################
+        #for line in side:
+        for line in self.coords:
+            XY = line
+            
+            #if line[0] == 1 or (line[0] == 0 and Rapids):
+            dxf_code.append("LINE")
+            dxf_code.append("  5")
+            dxf_code.append("30")
+            dxf_code.append("100")
+            dxf_code.append("AcDbEntity")
+            dxf_code.append("  8") #layer Code #dxf_code.append("0")
+
+            ##########################
+            #if line[0] == 1:
+            #    dxf_code.append("1")
+            #else:
+            #    dxf_code.append("2")    
+            #dxf_code.append(" 62") #color code
+            #if line[0] == 1:
+            #    dxf_code.append("10")
+            #else:
+            #    dxf_code.append("150")
+            dxf_code.append("1")
+            dxf_code.append(" 62") #color code
+            dxf_code.append("150")
+            ###########################
+            
+            dxf_code.append("100")
+            dxf_code.append("AcDbLine")
+            dxf_code.append(" 10")
+            dxf_code.append("%.4f" %(line[0])) #x1 coord
+            dxf_code.append(" 20")
+            dxf_code.append("%.4f" %(line[1])) #y1 coord
+            dxf_code.append(" 30")
+            dxf_code.append("%.4f" %(0))       #z1 coord
+            dxf_code.append(" 11")
+            dxf_code.append("%.4f" %(line[2])) #x2 coord
+            dxf_code.append(" 21")
+            dxf_code.append("%.4f" %(line[3])) #y2 coord
+            dxf_code.append(" 31")
+            dxf_code.append("%.4f" %(0))       #z2 coord
+            dxf_code.append("  0")
+
+        dxf_code.append("ENDSEC")
+        dxf_code.append("0")
+        dxf_code.append("EOF")
+        ######################################
+        ## END G-CODE WRITING for Dxf_Write ##
+        ######################################
+        return dxf_code
+
 
     def CopyClipboard_GCode(self):
         self.clipboard_clear()
@@ -3489,6 +3681,7 @@ class Application(Frame):
             pass
 
     def CLEAN_Recalculate_Click(self):
+        TSTART = time()
         win_id=self.grab_current()
         if self.clean_segment == []:
             mess = "Calculate V-Carve must be executed\n"
@@ -3506,6 +3699,7 @@ class Application(Frame):
             win_id.grab_set()
         except:
             pass
+        #print "time for cleanup calculations: ",time()-TSTART
 
     def Write_Clean_Click(self):
         win_id=self.grab_current()
@@ -3573,13 +3767,6 @@ class Application(Frame):
         global STOP_CALC
         STOP_CALC=1
 
-    def calc_clean_width(self):
-        xLength = self.MAXX-self.MINX
-        yLength = self.MAXY-self.MINY
-        bit_dia = self.calc_vbit_dia()
-        clean_w = min(xLength,yLength)/2.0 + bit_dia
-        return clean_w
-
     def calc_vbit_dia(self):
         bit_dia   = float(self.v_bit_dia.get())
         depth_lim = float(self.v_depth_lim.get())
@@ -3589,7 +3776,6 @@ class Application(Frame):
             allowance = float(self.allowance.get())
             bit_dia = -2*allowance*tan(half_angle)
             bit_dia = max(bit_dia, 0.001)
-            #bit_dia = 0.001
             return bit_dia
 
         if depth_lim < 0.0:
@@ -3597,7 +3783,10 @@ class Application(Frame):
                 bit_dia    = -2*depth_lim*tan(half_angle)
             elif self.bit_shape.get() == "BALL":
                 R = bit_dia / 2.0
-                bit_dia = 2*sqrt( R**2 - (R+depth_lim)**2)
+                if (depth_lim > -R):
+                    bit_dia = 2*sqrt( R**2 - (R+depth_lim)**2)
+                else:
+                    bit_dia   = float(self.v_bit_dia.get())
             elif self.bit_shape.get() == "FLAT":
                 R = bit_dia / 2.0
             else:
@@ -3829,11 +4018,31 @@ class Application(Frame):
     def Entry_BoxGap_Check(self):
         try:
             value = float(self.boxgap.get())
+            if  value <= 0.0:
+                self.statusMessage.set(" Gap should be greater than zero.")
+                return 2 # Value is invalid number
         except:
             return 3     # Value not a number
         return 0         # Value is a valid number
     def Entry_BoxGap_Callback(self, varName, index, mode):
         self.entry_set(self.Entry_BoxGap,self.Entry_BoxGap_Check())
+        try:
+            if not bool(self.plotbox.get()):
+                self.Label_BoxGap.configure(state="disabled")
+                self.Entry_BoxGap.configure(state="disabled")
+                self.Label_BoxGap_u.configure(state="disabled")
+            else:
+                self.Label_BoxGap.configure(state="normal")
+                self.Entry_BoxGap.configure(state="normal")
+                self.Label_BoxGap_u.configure(state="normal")
+        except:
+            pass
+    def Entry_Box_Callback(self, varName, index, mode):
+        try:
+            self.Entry_BoxGap_Callback(varName, index, mode)
+        except:
+            pass
+        self.Recalc_RQD()
     #############################
     def Fontdir_Click(self, event):
         win_id=self.grab_current()
@@ -4011,6 +4220,8 @@ class Application(Frame):
         return 0         # Value is a valid number
     def Entry_CLEAN_DIA_Callback(self, varName, index, mode):
         self.entry_set(self.Entry_CLEAN_DIA, self.Entry_CLEAN_DIA_Check() )
+        self.clean_coords=[]
+        self.v_clean_coords=[]
     #############################
     def Entry_STEP_OVER_Check(self):
         try:
@@ -4257,7 +4468,7 @@ class Application(Frame):
             except:
                 pass
 
-        self.Clean_Path_Calc(bit_type)
+        self.Clean_Path_Calc(bit_type) 
 
         if self.clean_coords == []:
             return 1
@@ -4473,6 +4684,13 @@ class Application(Frame):
                    self.useIMGsize.set(line[line.find("useIMGsize"):].split()[1])
                 elif "no_comments"   in input_code:
                    self.no_comments.set(line[line.find("no_comments"):].split()[1])
+                elif "plotbox"    in input_code:
+                    if (line[line.find("plotbox"):].split()[1] == "box"):
+                        self.plotbox.set(1)
+                    elif (line[line.find("plotbox"):].split()[1] == "no_box"):
+                        self.plotbox.set(0)
+                    else:
+                        self.plotbox.set(line[line.find("plotbox"):].split()[1])
 
                 # STRING
                 elif "fontdir"    in input_code:
@@ -4537,8 +4755,6 @@ class Application(Frame):
                     self.fontfile.set(line[line.find("fontfile"):].split("\042")[1])
                 elif "H_CALC"     in input_code:
                     self.H_CALC.set(line[line.find("H_CALC"):].split()[1])
-                elif "plotbox"    in input_code:
-                    self.plotbox.set(line[line.find("plotbox"):].split()[1])
                 elif "boxgap"    in input_code:
                     self.boxgap.set(line[line.find("boxgap"):].split()[1])
                 elif "boxsize"    in input_code:
@@ -4676,7 +4892,7 @@ class Application(Frame):
         fileName, fileExtension = os.path.splitext(self.NGC_FILE)
         init_file=os.path.basename(fileName)
 
-        if self.input_type.get() != "text":
+        if self.input_type.get() == "image":
             fileName, fileExtension = os.path.splitext(self.IMAGE_FILE)
             init_file=os.path.basename(fileName)
         else:
@@ -4789,6 +5005,47 @@ class Application(Frame):
             
             self.statusMessage.set("File Saved: %s" %(filename))
             self.statusbar.configure( bg = 'white' )
+
+    def menu_File_Save_DXF_File_close_loops(self):
+        self.menu_File_Save_DXF_File(close_loops=True)
+
+    def menu_File_Save_DXF_File(self,close_loops=False):
+        
+        DXF_CODE = self.WriteDXF(close_loops=close_loops)
+        init_dir = os.path.dirname(self.NGC_FILE)
+        if ( not os.path.isdir(init_dir) ):
+            init_dir = self.HOME_DIR
+
+        fileName, fileExtension = os.path.splitext(self.NGC_FILE)
+        init_file=os.path.basename(fileName)
+        if self.input_type.get() != "text":
+            fileName, fileExtension = os.path.splitext(self.IMAGE_FILE)
+            init_file=os.path.basename(fileName)
+        else:
+            init_file="text"
+
+        filename = asksaveasfilename(defaultextension='.dxf', \
+                                     filetypes=[("DXF File"  ,"*.dxf"),("All Files","*")],\
+                                     initialdir=init_dir,\
+                                     initialfile= init_file )
+
+        if filename != '' and filename != ():
+            try:
+                fout = open(filename,'w')
+            except:
+                self.statusMessage.set("Unable to open file for writing: %s" %(filename))
+                self.statusbar.configure( bg = 'red' )
+                return
+            for line in DXF_CODE:
+                try:
+                    fout.write(line+'\n')
+                except:
+                    pass
+            fout.close()
+            
+            self.statusMessage.set("File Saved: %s" %(filename))
+            self.statusbar.configure( bg = 'white' )
+            
     def menu_File_Quit(self):
         if message_ask_ok_cancel("Exit", "Exiting F-Engrave...."):
             self.Quit_Click(None)
@@ -4801,20 +5058,21 @@ class Application(Frame):
             dummy_event = Event()
             dummy_event.widget=self.master
             self.Master_Configure(dummy_event,1)
-            self.Plot_Data()
 
     def menu_Mode_Change_Callback(self, varName, index, mode):
         self.menu_View_Refresh()
 
     def menu_Mode_Change(self):
+        self.delay_calc=1
         dummy_event = Event()
         dummy_event.widget=self.master
         self.Master_Configure(dummy_event,1)
-
+        self.delay_calc=0
         if self.input_type.get() == "text":
             self.Read_font_file()
         else:
             self.Read_image_file()
+        
         self.DoIt()
 
     def menu_View_Recalculate(self):
@@ -4861,7 +5119,9 @@ class Application(Frame):
     def Master_Configure(self, event, update=0):
         if event.widget != self.master:
             return
-
+        if (self.batch.get()):
+            return
+			
         x = int(self.master.winfo_x())
         y = int(self.master.winfo_y())
         w = int(self.master.winfo_width())
@@ -4889,7 +5149,6 @@ class Application(Frame):
                 self.Label_Tangle.configure(text="Text Angle")
                 self.Label_flip.configure(text="Flip Text")
                 self.Label_mirror.configure(text="Mirror Text")
-                self.Label_Yscale_u = Label(self.master,textvariable=self.units, anchor=W)
 
                 self.Label_useIMGsize.place_forget()
                 self.Checkbutton_useIMGsize.place_forget()
@@ -4907,6 +5166,7 @@ class Application(Frame):
                 self.Label_font_prop.place(x=x_label_L, y=Yloc, width=w_label*2, height=21)
                 Yloc=Yloc+24
                 self.Label_Yscale.place(x=x_label_L, y=Yloc, width=w_label, height=21)
+                self.Label_Yscale_pct.place_forget()
                 self.Label_Yscale_u.place(x=x_units_L, y=Yloc, width=w_units, height=21)
                 self.Entry_Yscale.place(x=x_entry_L, y=Yloc, width=w_entry, height=23)
 
@@ -5068,11 +5328,6 @@ class Application(Frame):
                 self.Label_Tangle.configure(text="Image Angle")
                 self.Label_flip.configure(text="Flip Image")
                 self.Label_mirror.configure(text="Mirror Image")
-                if (self.useIMGsize.get()):
-                    self.Label_Yscale_u = Label(self.master,text="%", anchor=W)
-                else:
-                    self.Label_Yscale_u = Label(self.master,textvariable=self.units, anchor=W)
-
                 # Left Column #
                 w_label=90
                 w_entry=60
@@ -5086,7 +5341,13 @@ class Application(Frame):
                 self.Label_font_prop.place(x=x_label_L, y=Yloc, width=w_label*2, height=21)
                 Yloc=Yloc+24
                 self.Label_Yscale.place(x=x_label_L, y=Yloc, width=w_label, height=21)
-                self.Label_Yscale_u.place(x=x_units_L, y=Yloc, width=w_units, height=21)
+                if (self.useIMGsize.get()):
+                    self.Label_Yscale_u.place_forget()
+                    self.Label_Yscale_pct.place(x=x_units_L, y=Yloc, width=w_units, height=21)
+                else:
+                    self.Label_Yscale_pct.place_forget()
+                    self.Label_Yscale_u.place(x=x_units_L, y=Yloc, width=w_units, height=21)
+					
                 self.Entry_Yscale.place(x=x_entry_L, y=Yloc, width=w_entry, height=23)
 
                 Yloc=Yloc+24
@@ -5105,7 +5366,6 @@ class Application(Frame):
                     self.Entry_Sthick.configure(state="normal")
                     self.Label_Sthick.configure(state="normal")
                     self.Label_Sthick_u.configure(state="normal")
-
 
 
                 Yloc=Yloc+24
@@ -5638,7 +5898,7 @@ class Application(Frame):
         self.pscale = PlotScale
 
         Radius_plot = 0
-        if self.plotbox.get() != "no_box" and self.cut_type.get() == "engrave":
+        if self.plotbox.get() and self.cut_type.get() == "engrave":
             if Radius_in != 0:
                 Radius_plot=  float(self.RADIUS_PLOT)
 
@@ -5663,12 +5923,15 @@ class Application(Frame):
         else:
             plot_width = 1.0
 
+        x_zero = self.Xzero
+        y_zero = self.Yzero
+        
         # Plot circle radius with radius equal to Radius_plot
         if Radius_plot != 0:
-            Rpx_lft = cszw/2 + ( -Radius_plot-midx)  / PlotScale
-            Rpx_rgt = cszw/2 + (  Radius_plot-midx)  / PlotScale
-            Rpy_bot = cszh/2 + (  Radius_plot+midy)  / PlotScale
-            Rpy_top = cszh/2 + ( -Radius_plot+midy)  / PlotScale
+            Rpx_lft = cszw/2 + ( -Radius_plot-midx - x_zero) / PlotScale
+            Rpx_rgt = cszw/2 + (  Radius_plot-midx - x_zero)  / PlotScale
+            Rpy_bot = cszh/2 + (  Radius_plot+midy + y_zero)  / PlotScale
+            Rpy_top = cszh/2 + ( -Radius_plot+midy + y_zero)  / PlotScale
             self.segID.append( self.PreviewCanvas.create_oval(Rpx_lft, Rpy_bot, Rpx_rgt, Rpy_top, outline="black", width = plot_width) )
 
         for line in self.coords:
@@ -5887,11 +6150,12 @@ class Application(Frame):
         minx_tmp =  99995.0
 
         font_word_space  = 0
-        font_line_height = -1e10
-        font_char_width =  -1e10
-        font_used_height = -1e10
-        font_used_width  = -1e10
-        font_used_depth  =  1e10
+        INF = 1e10
+        font_line_height = -INF
+        font_char_width =  -INF
+        font_used_height = -INF
+        font_used_width  = -INF
+        font_used_depth  =  INF
 
         ################################
         ##      Font Index Preview    ##
@@ -5938,8 +6202,8 @@ class Application(Frame):
         elif self.H_CALC.get() == "max_use":
             font_line_height = font_used_height
             font_line_depth  = font_used_depth
-
-        if font_line_height > 0:
+            
+        if font_line_height > -INF:
             if (self.useIMGsize.get() and self.input_type.get()=="image"):
                 YScale = YScale_in/100.0
             else:
@@ -6216,14 +6480,29 @@ class Application(Frame):
         Radius_plot = 0
         Thick_Border  =  float(self.STHICK.get() )
         Delta = Thick/2 + float(self.boxgap.get())
-        if self.plotbox.get() != "no_box"  and self.cut_type.get() != "v-carve":
+        if self.plotbox.get(): #and self.cut_type.get() != "v-carve":
+            if Radius_in == 0 or self.cut_type.get() == "v-carve":
+            #    #Add coords for box
+            #    self.coords.append([ minx-Delta, miny-Delta, maxx+Delta, miny-Delta, 0, 0])
+            #    self.coords.append([ maxx+Delta, miny-Delta, maxx+Delta, maxy+Delta, 0, 0])
+            #    self.coords.append([ maxx+Delta, maxy+Delta, minx-Delta, maxy+Delta, 0, 0])
+            #    self.coords.append([ minx-Delta, maxy+Delta, minx-Delta, miny-Delta, 0, 0])
 
-            if Radius_in == 0:
-                self.coords.append([ minx-Delta, miny-Delta, maxx+Delta, miny-Delta, 0, 0])
-                self.coords.append([ maxx+Delta, miny-Delta, maxx+Delta, maxy+Delta, 0, 0])
-                self.coords.append([ maxx+Delta, maxy+Delta, minx-Delta, maxy+Delta, 0, 0])
-                self.coords.append([ minx-Delta, maxy+Delta, minx-Delta, miny-Delta, 0, 0])
-                Delta = Delta + Thick/2
+
+                if (bool(self.mirror.get()) ^ bool(self.flip.get())):
+                    self.coords.append([ minx-Delta, miny-Delta, minx-Delta, maxy+Delta, 0, 0])
+                    self.coords.append([ minx-Delta, maxy+Delta, maxx+Delta, maxy+Delta, 0, 0])
+                    self.coords.append([ maxx+Delta, maxy+Delta, maxx+Delta, miny-Delta, 0, 0])
+                    self.coords.append([ maxx+Delta, miny-Delta, minx-Delta, miny-Delta, 0, 0])
+                else:
+                    self.coords.append([ minx-Delta, miny-Delta, maxx+Delta, miny-Delta, 0, 0])
+                    self.coords.append([ maxx+Delta, miny-Delta, maxx+Delta, maxy+Delta, 0, 0])
+                    self.coords.append([ maxx+Delta, maxy+Delta, minx-Delta, maxy+Delta, 0, 0])
+                    self.coords.append([ minx-Delta, maxy+Delta, minx-Delta, miny-Delta, 0, 0])
+
+                
+                if self.cut_type.get() != "v-carve":
+                    Delta = Delta + Thick/2
                 minx = minx - Delta
                 maxx = maxx + Delta
                 miny = miny - Delta
@@ -6241,25 +6520,23 @@ class Application(Frame):
                 # is generated later when not v-carving
 
         # The ^ operator used on the next line bitwise is XOR
-        if (bool(self.v_flop.get()) ^ bool(self.inlay.get())) and (self.cut_type.get() == "v-carve"):
-
-            if (bool(self.mirror.get()) ^ bool(self.flip.get())):
-                self.coords.append([ minx-Delta, miny-Delta, minx-Delta, maxy+Delta, 0, 0])
-                self.coords.append([ minx-Delta, maxy+Delta, maxx+Delta, maxy+Delta, 0, 0])
-                self.coords.append([ maxx+Delta, maxy+Delta, maxx+Delta, miny-Delta, 0, 0])
-                self.coords.append([ maxx+Delta, miny-Delta, minx-Delta, miny-Delta, 0, 0])
-            else:
-                self.coords.append([ minx-Delta, miny-Delta, maxx+Delta, miny-Delta, 0, 0])
-                self.coords.append([ maxx+Delta, miny-Delta, maxx+Delta, maxy+Delta, 0, 0])
-                self.coords.append([ maxx+Delta, maxy+Delta, minx-Delta, maxy+Delta, 0, 0])
-                self.coords.append([ minx-Delta, maxy+Delta, minx-Delta, miny-Delta, 0, 0])
-
-
-            Delta = Delta + Thick/2
-            minx = minx - Delta
-            maxx = maxx + Delta
-            miny = miny - Delta
-            maxy = maxy + Delta
+        #if (bool(self.v_flop.get()) ^ bool(self.inlay.get())) and (self.cut_type.get() == "v-carve"):
+        #
+        #    if (bool(self.mirror.get()) ^ bool(self.flip.get())):
+        #        self.coords.append([ minx-Delta, miny-Delta, minx-Delta, maxy+Delta, 0, 0])
+        #        self.coords.append([ minx-Delta, maxy+Delta, maxx+Delta, maxy+Delta, 0, 0])
+        #        self.coords.append([ maxx+Delta, maxy+Delta, maxx+Delta, miny-Delta, 0, 0])
+        #        self.coords.append([ maxx+Delta, miny-Delta, minx-Delta, miny-Delta, 0, 0])
+        #    else:
+        #        self.coords.append([ minx-Delta, miny-Delta, maxx+Delta, miny-Delta, 0, 0])
+        #        self.coords.append([ maxx+Delta, miny-Delta, maxx+Delta, maxy+Delta, 0, 0])
+        #        self.coords.append([ maxx+Delta, maxy+Delta, minx-Delta, maxy+Delta, 0, 0])
+        #        self.coords.append([ minx-Delta, maxy+Delta, minx-Delta, miny-Delta, 0, 0])
+        #    Delta = Delta + Thick/2
+        #    minx = minx - Delta
+        #    maxx = maxx + Delta
+        #    miny = miny - Delta
+        #    maxy = maxy + Delta
 
         ##########################################
         #         ORIGIN LOCATING STUFF          #
@@ -6362,18 +6639,19 @@ class Application(Frame):
     ##################################################
     def record_v_carve_data(self,x1,y1,phi,rout,loop_cnt, clean_flag):
         rbit = self.calc_vbit_dia() / 2.0
-
+        r_clean  = float(self.clean_dia.get())/2.0
+        
         Lx, Ly = Transform(0,rout,-phi)
         xnormv = x1+Lx
         ynormv = y1+Ly
         need_clean = 0
 
         if int(clean_flag) != 1:
-            self.vcoords.append([xnormv, ynormv, rout, loop_cnt])
-            if abs(rout - rbit) < Zero:
+            self.vcoords.append([xnormv, ynormv, rout, loop_cnt]) 
+            if abs(rbit-rout) <= Zero:
                 need_clean = 1
         else:
-            if rout > rbit:
+            if rout >= rbit:
                 self.clean_coords.append([xnormv, ynormv, rout, loop_cnt])
 
         return xnormv,ynormv,rout,need_clean
@@ -6403,7 +6681,20 @@ class Application(Frame):
 
         return inside
 
-    def V_Carve_It(self,clean_flag=0):
+    def get_flop_staus(self,CLEAN_FLAG=False):
+        v_flop    =  bool(self.v_flop.get())
+
+        if (self.input_type.get() == "text") and (CLEAN_FLAG==False):
+            if self.plotbox.get():
+                v_flop = not(v_flop) 
+            if self.mirror.get():
+                v_flop  = not(v_flop)
+            if self.flip.get():
+                v_flop = not(v_flop)
+        return v_flop
+
+
+    def V_Carve_It(self,clean_flag=0,DXF_FLAG = False):
         global STOP_CALC
         self.master.unbind("<Configure>")
         STOP_CALC=0
@@ -6438,21 +6729,7 @@ class Application(Frame):
         #########################################
         if self.cut_type.get() == "v-carve" and self.fontdex.get() == False:
 
-            if self.input_type.get() == "text":
-                v_flop    =  bool(self.v_flop.get())
-
-                mirror_flag = self.mirror.get()
-                flip_flag   = self.flip.get()
-
-                if self.inlay.get() == True:
-                    v_flop  = not(v_flop)
-                if mirror_flag == True:
-                    v_flop  = not(v_flop)
-                if flip_flag == True:
-                    v_flop = not(v_flop)
-            else:
-                v_flop = False
-
+            v_flop  = self.get_flop_staus()
             if (not self.batch.get()):
                 cszw = int(self.PreviewCanvas.cget("width"))
                 cszh = int(self.PreviewCanvas.cget("height"))
@@ -6469,13 +6746,14 @@ class Application(Frame):
 
             dline       = float(self.v_step_len.get())
             ###############################################################
-            rbit        = self.calc_vbit_dia()/2.0
+            rbit      = self.calc_vbit_dia()/2.0
+            clean_dia = float(self.clean_dia.get())
+            
             r_inlay_top = self.calc_r_inlay_top()
             if (clean_flag != 1 ):
                 rmax = rbit
             else:
-                clean_w = self.calc_clean_width()
-                rmax = max(rbit, clean_w/2.0)
+                rmax = rbit + clean_dia/2
             ###############################################################
             v_stp_crner = float(self.v_stp_crner.get())
             if self.inlay.get():
@@ -6497,314 +6775,12 @@ class Application(Frame):
             if dangle < 2.0:
                 dangle = 2.0
 
-            ## Reorder
-            if ((self.input_type.get() == "image") and (clean_flag != 1)):
-                ##########################
-                ###   Create ECOORDS   ###
-                ##########################
-                ecoords = []
-                Lbeg=[]
-                Lend=[]
-                for i in range(len(self.coords)):
-                    [x1,y1,x2,y2,dummy1,dummy2]=self.coords[i]
-                    if i == 0:
-                        cnt=0
-                        ecoords.append([x1,y1])
-                        Lbeg.append(cnt)
-                        cnt = cnt+1
-                        ecoords.append([x2,y2])
-                        oldx, oldy = x2, y2
-                    else:
-                        dist = sqrt((oldx - x1)**2 + (oldy - y1)**2)
-                        # check and see if we need to move
-                        # to a new discontinuous start point
-                        if (dist > Zero):
-                            Lend.append(cnt)
-                            cnt = cnt+1
-                            ecoords.append([x1,y1])
-                            Lbeg.append(cnt)
-                        cnt = cnt+1
-                        ecoords.append([x2,y2])
-                        oldx, oldy = x2, y2
-                Lend.append(cnt)
+            ##VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+            if ((self.input_type.get() == "image") and (clean_flag == 0)):
+                self.coords = self.sort_for_v_carve(self.coords)
 
-                ####################
-                if (not self.batch.get()):
-                    self.statusMessage.set('Checking Input Image Data')
-                    self.master.update()
-                ######################################################
-                ### Fully Close Closed loops and Remove Open Loops ###
-                ######################################################
-                i = 0
-                LObeg = []
-                LOend = []
-                while i < len(Lbeg): #for each loop
-                    [Xstart, Ystart] = ecoords[Lbeg[i]]
-                    [Xend,   Yend  ] = ecoords[Lend[i]]
-
-                    dist = sqrt((Xend-Xstart)**2 +(Yend-Ystart)**2)
-                    if  dist <= Zero: #if end is the same as the beginning (changed in V1.55: was Acc)
-                        ecoords[Lend[i]] = [Xstart, Ystart]
-                        i = i+1
-                    else:  #end != to beginning
-                        LObeg.append(Lbeg.pop(i))
-                        LOend.append(Lend.pop(i))
-
-                LNbeg=[]
-                LNend=[]
-                LNloop=[]
-                #######################################################
-                ###  For Each open loop connect to the next closest ###
-                ###  loop end until all of the loops are closed     ###
-                #######################################################
-                Lcnt=0
-                while len(LObeg) > 0: #for each Open Loop
-                    Start = LObeg.pop(0)
-                    End   = LOend.pop(0)
-                    Lcnt = Lcnt+1
-                    LNloop.append(Lcnt)
-                    LNbeg.append(Start)
-                    LNend.append(End)
-                    [Xstart, Ystart] = ecoords[Start]
-
-                    OPEN = True
-                    while OPEN == True and len(LObeg) > 0:
-                        [Xend,Yend] = ecoords[End]
-                        dist_beg_min = sqrt((Xend-Xstart)**2 +(Yend-Ystart)**2)
-                        dist_end_min = dist_beg_min
-                        k_min_beg = -1
-                        k_min_end = -1
-                        for k in range(len(LObeg)):
-                            [Xkstart, Ykstart] = ecoords[LObeg[k]]
-                            [Xkend  ,   Ykend] = ecoords[LOend[k]]
-                            dist_beg = sqrt((Xend-Xkstart)**2 +(Yend-Ykstart)**2)
-                            dist_end = sqrt((Xend - Xkend)**2 +(Yend - Ykend)**2)
-
-                            if dist_beg < dist_beg_min:
-                                dist_beg_min = dist_beg
-                                k_min_beg = k
-                            if dist_end < dist_end_min:
-                                dist_end_min = dist_end
-                                k_min_end = k
-
-                        if k_min_beg == -1 and k_min_end == -1:
-                            kbeg = End
-                            kend = Start
-                            ecoords.append(ecoords[End])
-                            ecoords.append(ecoords[Start])
-                            LNloop.append(Lcnt)
-                            LNbeg.append(len(ecoords)-2)
-                            LNend.append(len(ecoords)-1)
-                            OPEN = False
-
-                        elif dist_end_min < dist_beg_min:
-                            kend = LObeg.pop(k_min_end)
-                            kbeg = LOend.pop(k_min_end)
-
-                            ecoords.append(ecoords[End])
-                            ecoords.append(ecoords[kbeg])
-
-                            LNloop.append(Lcnt)
-                            LNbeg.append(len(ecoords)-2)
-                            LNend.append(len(ecoords)-1)
-                            LNloop.append(Lcnt)
-                            LNbeg.append(kbeg)
-                            LNend.append(kend)
-                            End  = kend
-                        else:
-                            kbeg = LObeg.pop(k_min_beg)
-                            kend = LOend.pop(k_min_beg)
-
-                            ecoords.append(ecoords[End])
-                            ecoords.append(ecoords[kbeg])
-
-                            LNloop.append(Lcnt)
-                            LNbeg.append(len(ecoords)-2)
-                            LNend.append(len(ecoords)-1)
-                            LNloop.append(Lcnt)
-                            LNbeg.append(kbeg)
-                            LNend.append(kend)
-                            End  = kend
-
-                    if OPEN == True and len(LObeg) == 0:
-                        ecoords.append(ecoords[End])
-                        ecoords.append(ecoords[Start])
-                        LNloop.append(Lcnt)
-                        LNbeg.append(len(ecoords)-2)
-                        LNend.append(len(ecoords)-1)
-
-                ###########################################################
-                ### Make new sequential ecoords for each new loop       ###
-                ###########################################################
-                Loop_last = -1
-                for k in range(len(LNbeg)):
-                    Start = LNbeg[k]
-                    End   = LNend[k]
-                    Loop  = LNloop[k]
-                    if Loop != Loop_last:
-                        Lbeg.append(len(ecoords))
-
-                        if Loop_last != -1:
-                            Lend.append(len(ecoords)-1)
-                        Loop_last = Loop
-
-                    if Start > End:
-                        step = -1
-                    else:
-                        step = 1
-                    for i in range(Start,End+step,step):
-                        [x1,y1]   = ecoords[i]
-                        ecoords.append([x1,y1])
-                if len(Lbeg) > len(Lend):
-                    Lend.append(len(ecoords)-1)
-
-                ###########################################
-                ###   Determine loop directions CW/CCW  ###
-                ###########################################
-                if (not self.batch.get()):
-                    self.statusMessage.set('Calculating Initial Loop Directions (CW/CCW)')
-                    self.master.update()
-                Lflip = []
-                Lcw   = []
-
-                for k in range(len(Lbeg)):
-                    Start = Lbeg[k]
-                    End   = Lend[k]
-                    step = 1
-
-                    signedArea=0.0
-
-                    [x1,y1]   = ecoords[Start]
-                    for i in range(Start+1,End+step,step):
-                        [x2,y2]   = ecoords[i]
-                        signedArea += (x2-x1)*(y2+y1)
-                        x1=x2
-                        y1=y2
-                    if signedArea > 0.0:
-                        Lflip.append(False)
-                        Lcw.append(True)
-                    else:
-                        Lflip.append(True)
-                        Lcw.append(False)
-
-                Nloops = len(Lbeg)
-                LoopTree=[]
-                Lnum=[]
-                for iloop in range(Nloops):
-                    LoopTree.append([iloop,[],[]])
-                    Lnum.append(iloop)
-
-                #####################################################
-                # For each loop determine if other loops are inside #
-                #####################################################
-                for iloop in range(Nloops):
-                    CUR_PCT=float(iloop)/Nloops*100.0
-                    if (not self.batch.get()):
-                        self.statusMessage.set('Determining Which Side of Loop to Cut: %d of %d' %(iloop+1,Nloops))
-                        self.master.update()
-                    ipoly = ecoords[Lbeg[iloop]:Lend[iloop]]
-
-                    ## Check points in other loops (could just check one) ##
-                    if ipoly != []:
-                        for jloop in range(Nloops):
-                            if jloop != iloop:
-                                inside = 0
-                                #for jval in range(Lbeg[jloop],Lend[jloop]):
-                                #    inside = inside + self.point_inside_polygon(ecoords[jval][0],ecoords[jval][1],ipoly)
-                                jval = Lbeg[jloop]
-                                inside = inside + self.point_inside_polygon(ecoords[jval][0],ecoords[jval][1],ipoly)
-                                if inside > 0:
-                                    Lflip[jloop] = not Lflip[jloop]
-                                    LoopTree[iloop][1].append(jloop)
-                                    LoopTree[jloop][2].append(iloop)
-
-                #####################################################
-                # Set Loop clockwise flag to the state of each loop #
-                #####################################################
-                # could flip cut side here for auto side determination
-                for iloop in range(Nloops):
-                    if Lflip[iloop]:
-                        Lcw[iloop]=not Lcw[iloop]
-
-                CUR_PCT = 0.0
-                #################################################
-                # Find new order based on distance to next beg  #
-                #################################################
-                if (not self.batch.get()):
-                    self.statusMessage.set('Re-Ordering Loops')
-                    self.master.update()
-                order_out = []
-                if len(Lflip)>0:
-                    if Lflip[0]:
-                        order_out.append([ Lend[0], Lbeg[0], Lnum[0] ])
-                    else:
-                        order_out.append([ Lbeg[0], Lend[0], Lnum[0] ])
-
-                inext = 0
-                total=len(Lbeg)
-                for i in range(total-1):
-                    Lbeg.pop(inext)
-                    ii = Lend.pop(inext)
-                    Lflip.pop(inext)
-                    Lnum.pop(inext)
-
-                    Xcur = ecoords[ii][0]
-                    Ycur = ecoords[ii][1]
-
-                    dx = Xcur - ecoords[ Lbeg[0] ][0]
-                    dy = Ycur - ecoords[ Lbeg[0] ][1]
-                    min_dist = dx*dx + dy*dy
-
-                    inext=0
-                    for j in range(1,len(Lbeg)):
-                        dx = Xcur - ecoords[ Lbeg[j] ][0]
-                        dy = Ycur - ecoords[ Lbeg[j] ][1]
-                        dist = dx*dx + dy*dy
-                        if dist < min_dist:
-                            min_dist=dist
-                            inext=j
-
-                    if Lflip[inext]:
-                        order_out.append([ Lend[inext], Lbeg[inext], Lnum[inext] ])
-                    else:
-                        order_out.append([ Lbeg[inext], Lend[inext], Lnum[inext] ])
-
-                ###########################################################
-                temp_coords=[]
-                for k in range(len(order_out)):
-                    [Start,End, LN] = order_out[k]
-                    if Start > End:
-                        step = -1
-                    else:
-                        step = 1
-                    xlast = ""
-                    ylast = ""
-                    for i in range(Start+step,End+step,step):
-                        if xlast != "" and ylast != "":
-                            x1 = xlast
-                            y1 = ylast
-                        else:
-                            [x1,y1] = ecoords[i-step]
-                        [x2,y2] = ecoords[i]
-
-                        Lseg = sqrt((x2-x1)**2 + (y2-y1)**2)
-                        if Lseg >= Acc:
-                            temp_coords.append([x1,y1,x2,y2,LN,0])
-                            xlast = ""
-                            ylast = ""
-                        else:
-                            last_segment = [x1,y1,x2,y2,LN,0]
-                            xlast = x1
-                            ylast = y1
-                    if  xlast != "" and  ylast != "":
-                        temp_coords.append(last_segment)
-
-                self.coords = temp_coords
-
-                for ijunk in range(len(self.coords)):
-                    self.coords[ijunk][4]=0
-                    self.coords[ijunk][5]=0
-
+            if (DXF_FLAG == True):
+                return
             ##########################################################################
 
             #set variable for first point in loop
@@ -6988,6 +6964,7 @@ class Application(Frame):
                 if clean_flag == 1:
                     if self.clean_segment[CUR_CNT] != 0:
                         TOT_LENGTH = TOT_LENGTH + LENGTH
+                        #TOT_LENGTH = TOT_LENGTH + LENGTH
                 else:
                     TOT_LENGTH = TOT_LENGTH + LENGTH
 
@@ -7048,20 +7025,31 @@ class Application(Frame):
                     dx = x2-x1
                     dy = y2-y1
                     Lseg = sqrt(dx*dx + dy*dy)
-                    if calc_flag != 0:
-                        CUR_LENGTH = CUR_LENGTH + Lseg
-                    else:
-                        continue
 
                     if Lseg < Zero: #was Acc
                         continue
-
+                    
                     #calculate the sin and cos of the coord transformation needed for
                     #the distance calculations
                     seg_sin =  dy/Lseg
                     seg_cos = -dx/Lseg
                     phi = Get_Angle(seg_sin,seg_cos)
-                    if (fabs(x1-x0) > Zero or fabs(y1-y0) > Zero) or char_num != char_num0:
+                    
+                    if calc_flag != 0:
+                        CUR_LENGTH = CUR_LENGTH + Lseg
+                    else:
+                        #theta = phi         #V1.62
+                        #x0=x2               #V1.62
+                        #y0=y2               #V1.62
+                        #seg_sin0=seg_sin    #V1.62
+                        #seg_cos0=seg_cos    #V1.62
+                        #char_num0=char_num  #V1.62
+                        continue
+
+
+                    
+                    if (fabs(x1-x0) > Zero) or (fabs(y1-y0) > Zero) or (char_num != char_num0):
+                    #if char_num != char_num0:
                         New_Loop=1
                         loop_cnt=loop_cnt+1
                         xa = float(x1)
@@ -7217,11 +7205,320 @@ class Application(Frame):
         # End V-Carve Stuff
         #########################################
 
+    def sort_for_v_carve(self,sort_coords,LN_START=0):
+        Acc = float(self.accuracy.get())    
+        ##########################
+        ###   Create ECOORDS   ###
+        ##########################
+        ecoords = []
+        Lbeg=[]
+        Lend=[]
+        cnt=0
+        for i in range(len(sort_coords)):
+            [x1,y1,x2,y2,dummy1,dummy2]=sort_coords[i]
+            if i == 0:
+                cnt=0
+                ecoords.append([x1,y1])
+                Lbeg.append(cnt)
+                cnt = cnt+1
+                ecoords.append([x2,y2])
+                oldx, oldy = x2, y2
+            else:
+                dist = sqrt((oldx - x1)**2 + (oldy - y1)**2)
+                # check and see if we need to move
+                # to a new discontinuous start point
+                if (dist > Zero):
+                    Lend.append(cnt)
+                    cnt = cnt+1
+                    ecoords.append([x1,y1])
+                    Lbeg.append(cnt)
+                cnt = cnt+1
+                ecoords.append([x2,y2])
+                oldx, oldy = x2, y2
+        Lend.append(cnt)
+
+        ####################
+        if (not self.batch.get()):
+            self.statusMessage.set('Checking Input Image Data')
+            self.master.update()
+        ######################################################
+        ### Fully Close Closed loops and Remove Open Loops ###
+        ######################################################
+        i = 0
+        LObeg = []
+        LOend = []
+        while i < len(Lbeg): #for each loop
+            [Xstart, Ystart] = ecoords[Lbeg[i]]
+            [Xend,   Yend  ] = ecoords[Lend[i]]
+
+            dist = sqrt((Xend-Xstart)**2 +(Yend-Ystart)**2)
+            if  dist <= Zero: #if end is the same as the beginning (changed in V1.55: was Acc)
+                ecoords[Lend[i]] = [Xstart, Ystart]
+                i = i+1
+            else:  #end != to beginning
+                LObeg.append(Lbeg.pop(i))
+                LOend.append(Lend.pop(i))
+
+        LNbeg=[]
+        LNend=[]
+        LNloop=[]
+        #######################################################
+        ###  For Each open loop connect to the next closest ###
+        ###  loop end until all of the loops are closed     ###
+        #######################################################
+        Lcnt=0
+        while len(LObeg) > 0: #for each Open Loop
+            Start = LObeg.pop(0)
+            End   = LOend.pop(0)
+            Lcnt = Lcnt+1
+            LNloop.append(Lcnt)
+            LNbeg.append(Start)
+            LNend.append(End)
+            [Xstart, Ystart] = ecoords[Start]
+
+            OPEN = True
+            while OPEN == True and len(LObeg) > 0:
+                [Xend,Yend] = ecoords[End]
+                dist_beg_min = sqrt((Xend-Xstart)**2 +(Yend-Ystart)**2)
+                dist_end_min = dist_beg_min
+                k_min_beg = -1
+                k_min_end = -1
+                for k in range(len(LObeg)):
+                    [Xkstart, Ykstart] = ecoords[LObeg[k]]
+                    [Xkend  ,   Ykend] = ecoords[LOend[k]]
+                    dist_beg = sqrt((Xend-Xkstart)**2 +(Yend-Ykstart)**2)
+                    dist_end = sqrt((Xend - Xkend)**2 +(Yend - Ykend)**2)
+
+                    if dist_beg < dist_beg_min:
+                        dist_beg_min = dist_beg
+                        k_min_beg = k
+                    if dist_end < dist_end_min:
+                        dist_end_min = dist_end
+                        k_min_end = k
+
+                if k_min_beg == -1 and k_min_end == -1:
+                    kbeg = End
+                    kend = Start
+                    ecoords.append(ecoords[End])
+                    ecoords.append(ecoords[Start])
+                    LNloop.append(Lcnt)
+                    LNbeg.append(len(ecoords)-2)
+                    LNend.append(len(ecoords)-1)
+                    OPEN = False
+
+                elif dist_end_min < dist_beg_min:
+                    kend = LObeg.pop(k_min_end)
+                    kbeg = LOend.pop(k_min_end)
+
+                    ecoords.append(ecoords[End])
+                    ecoords.append(ecoords[kbeg])
+
+                    LNloop.append(Lcnt)
+                    LNbeg.append(len(ecoords)-2)
+                    LNend.append(len(ecoords)-1)
+                    LNloop.append(Lcnt)
+                    LNbeg.append(kbeg)
+                    LNend.append(kend)
+                    End  = kend
+                else:
+                    kbeg = LObeg.pop(k_min_beg)
+                    kend = LOend.pop(k_min_beg)
+
+                    ecoords.append(ecoords[End])
+                    ecoords.append(ecoords[kbeg])
+
+                    LNloop.append(Lcnt)
+                    LNbeg.append(len(ecoords)-2)
+                    LNend.append(len(ecoords)-1)
+                    LNloop.append(Lcnt)
+                    LNbeg.append(kbeg)
+                    LNend.append(kend)
+                    End  = kend
+
+            if OPEN == True and len(LObeg) == 0:
+                ecoords.append(ecoords[End])
+                ecoords.append(ecoords[Start])
+                LNloop.append(Lcnt)
+                LNbeg.append(len(ecoords)-2)
+                LNend.append(len(ecoords)-1)
+
+        ###########################################################
+        ### Make new sequential ecoords for each new loop       ###
+        ###########################################################
+        Loop_last = -1
+        for k in range(len(LNbeg)):
+            Start = LNbeg[k]
+            End   = LNend[k]
+            Loop  = LNloop[k]
+            if Loop != Loop_last:
+                Lbeg.append(len(ecoords))
+
+                if Loop_last != -1:
+                    Lend.append(len(ecoords)-1)
+                Loop_last = Loop
+
+            if Start > End:
+                step = -1
+            else:
+                step = 1
+            for i in range(Start,End+step,step):
+                [x1,y1]   = ecoords[i]
+                ecoords.append([x1,y1])
+        if len(Lbeg) > len(Lend):
+            Lend.append(len(ecoords)-1)
+
+        ###########################################
+        ###   Determine loop directions CW/CCW  ###
+        ###########################################
+        if (not self.batch.get()):
+            self.statusMessage.set('Calculating Initial Loop Directions (CW/CCW)')
+            self.master.update()
+        Lflip = []
+        Lcw   = []
+
+        for k in range(len(Lbeg)):
+            Start = Lbeg[k]
+            End   = Lend[k]
+            step = 1
+
+            signedArea=0.0
+
+            [x1,y1]   = ecoords[Start]
+            for i in range(Start+1,End+step,step):
+                [x2,y2]   = ecoords[i]
+                signedArea += (x2-x1)*(y2+y1)
+                x1=x2
+                y1=y2
+            if signedArea > 0.0:
+                Lflip.append(False)
+                Lcw.append(True)
+            else:
+                Lflip.append(True)
+                Lcw.append(False)
+
+        Nloops = len(Lbeg)
+        LoopTree=[]
+        Lnum=[]
+        for iloop in range(LN_START,Nloops+LN_START):
+            LoopTree.append([iloop,[],[]])
+            Lnum.append(iloop)
+
+        #####################################################
+        # For each loop determine if other loops are inside #
+        #####################################################
+        for iloop in range(Nloops):
+            CUR_PCT=float(iloop)/Nloops*100.0
+            if (not self.batch.get()):
+                self.statusMessage.set('Determining Which Side of Loop to Cut: %d of %d' %(iloop+1,Nloops))
+                self.master.update()
+            ipoly = ecoords[Lbeg[iloop]:Lend[iloop]]
+
+            ## Check points in other loops (could just check one) ##
+            if ipoly != []:
+                for jloop in range(Nloops):
+                    if jloop != iloop:
+                        inside = 0
+                        #for jval in range(Lbeg[jloop],Lend[jloop]):
+                        #    inside = inside + self.point_inside_polygon(ecoords[jval][0],ecoords[jval][1],ipoly)
+                        jval = Lbeg[jloop]
+                        inside = inside + self.point_inside_polygon(ecoords[jval][0],ecoords[jval][1],ipoly)
+                        if inside > 0:
+                            Lflip[jloop] = not Lflip[jloop]
+                            LoopTree[iloop][1].append(jloop)
+                            LoopTree[jloop][2].append(iloop)
+
+        #####################################################
+        # Set Loop clockwise flag to the state of each loop #
+        #####################################################
+        # could flip cut side here for auto side determination
+        for iloop in range(Nloops):
+            if Lflip[iloop]:
+                Lcw[iloop]=not Lcw[iloop]
+
+        CUR_PCT = 0.0
+        #################################################
+        # Find new order based on distance to next beg  #
+        #################################################
+        if (not self.batch.get()):
+            self.statusMessage.set('Re-Ordering Loops')
+            self.master.update()
+        order_out = []
+        if len(Lflip)>0:
+            if Lflip[0]:
+                order_out.append([ Lend[0], Lbeg[0], Lnum[0] ])
+            else:
+                order_out.append([ Lbeg[0], Lend[0], Lnum[0] ])
+
+        inext = 0
+        total=len(Lbeg)
+        for i in range(total-1):
+            Lbeg.pop(inext)
+            ii = Lend.pop(inext)
+            Lflip.pop(inext)
+            Lnum.pop(inext)
+
+            Xcur = ecoords[ii][0]
+            Ycur = ecoords[ii][1]
+
+            dx = Xcur - ecoords[ Lbeg[0] ][0]
+            dy = Ycur - ecoords[ Lbeg[0] ][1]
+            min_dist = dx*dx + dy*dy
+
+            inext=0
+            for j in range(1,len(Lbeg)):
+                dx = Xcur - ecoords[ Lbeg[j] ][0]
+                dy = Ycur - ecoords[ Lbeg[j] ][1]
+                dist = dx*dx + dy*dy
+                if dist < min_dist:
+                    min_dist=dist
+                    inext=j
+
+            if Lflip[inext]:
+                order_out.append([ Lend[inext], Lbeg[inext], Lnum[inext] ])
+            else:
+                order_out.append([ Lbeg[inext], Lend[inext], Lnum[inext] ])
+
+        ###########################################################
+        temp_coords=[]
+        for k in range(len(order_out)):
+            [Start,End, LN] = order_out[k]
+            if Start > End:
+                step = -1
+            else:
+                step = 1
+            xlast = ""
+            ylast = ""
+            for i in range(Start+step,End+step,step):
+                if xlast != "" and ylast != "":
+                    x1 = xlast
+                    y1 = ylast
+                else:
+                    [x1,y1] = ecoords[i-step]
+                [x2,y2] = ecoords[i]
+
+                Lseg = sqrt((x2-x1)**2 + (y2-y1)**2)
+                if Lseg >= Acc:
+                    temp_coords.append([x1,y1,x2,y2,LN,0])
+                    xlast = ""
+                    ylast = ""
+                else:
+                    last_segment = [x1,y1,x2,y2,LN,0]
+                    xlast = x1
+                    ylast = y1
+            if  xlast != "" and  ylast != "":
+                temp_coords.append(last_segment)
+
+        #for ijunk in range(len(temp_coords)):
+        #    temp_coords[ijunk][4]=0
+        #    temp_coords[ijunk][5]=0
+        return temp_coords
+    ### End sort_for_v_carve
+
+    
 
     def Find_Paths(self,check_coords_in,clean_dia,Radjust,clean_step,skip,direction):
         check_coords=[]
-
-
+        
         if direction == "Y":
             cnt = -1
             for line in check_coords_in:
@@ -7247,6 +7544,8 @@ class Application(Frame):
             miny_c = min(miny_c, XY[1]-XY[2] )
             maxy_c = max(maxy_c, XY[1]+XY[2] )
 
+          
+
         DX = clean_dia*clean_step
         DY = DX
         Xclean_coords=[]
@@ -7260,7 +7559,69 @@ class Application(Frame):
             Y = miny_c
             line_cnt = skip-1
             while Y <= maxy_c:
-                line_cnt = line_cnt+1
+                line_cnt = line_cnt+1  
+                X  = minx_c
+                x1 = X
+                x2 = X
+                x1_old = x1
+                x2_old = x2
+
+                # Find relevant clean_coord_data
+                ################################
+                temp_coords=[]
+                for line in check_coords:
+                    XY=line
+                    if Y < XY[1]+XY[2] and Y > XY[1]-XY[2]:
+                        temp_coords.append(XY)
+                ################################
+
+                while X <= maxx_c:
+                    for line in temp_coords:
+                        XY=line
+                        h = XY[0]
+                        k = XY[1]
+                        R = XY[2]-Radjust
+                        dist=sqrt((X-h)**2 + (Y-k)**2)
+                        if dist <= R:
+                            Root = sqrt(R**2 - (Y-k)**2)
+                            XL = h-Root
+                            XR = h+Root
+                            if XL < x1:
+                                x1 = XL
+                            if XR > x2:
+                                x2 = XR
+                    if x1==x2:
+                        X  = X+DX
+                        x1 = X
+                        x2 = X
+                    elif (x1 == x1_old) and (x2 == x2_old):
+                        loop_cnt=loop_cnt+1
+                        Xclean_coords.append([x1,Y,loop_cnt])
+                        Xclean_coords.append([x2,Y,loop_cnt])
+                        if line_cnt == skip:
+                            Xclean_coords_short.append([x1,Y,loop_cnt])
+                            Xclean_coords_short.append([x2,Y,loop_cnt])
+
+                        X  = X+DX
+                        x1 = X
+                        x2 = X
+                    else:
+                        X = x2
+                    x1_old = x1
+                    x2_old = x2
+                if line_cnt == skip:
+                    line_cnt = 0
+                Y=Y+DY
+            #########################################################################
+
+        if True == False:
+            #########################################################################
+            # loop over circles recording "pixels" that are covered by the circles
+            #########################################################################
+            loop_cnt=0
+            Y = miny_c
+            while Y <= maxy_c:
+                line_cnt = line_cnt+1  
                 X  = minx_c
                 x1 = X
                 x2 = X
@@ -7337,8 +7698,28 @@ class Application(Frame):
 
         return Xclean_coords_out,Xclean_coords_short_out
 
-
+    def Clean_coords_to_Path_coords(self,clean_coords_in):
+        path_coords_out=[]
+        # Clean coords format ([xnormv, ynormv, rout, loop_cnt]) - self.clean_coords
+        # Path coords format  ([x1,y1,x2,y2,line_cnt,char_cnt])  - self.coords
+        for i in range(1,len(clean_coords_in)):
+            if (clean_coords_in[i][3] == clean_coords_in[i-1][3]):
+                path_coords_out.append( [   clean_coords_in[i-1][0],
+                                            clean_coords_in[i-1][1],
+                                            clean_coords_in[i  ][0],
+                                            clean_coords_in[i  ][1],
+                                            0,
+                                            0])
+        return path_coords_out
+    
     def Clean_Path_Calc(self,bit_type="straight"):
+        v_flop  = self.get_flop_staus(CLEAN_FLAG=True)
+        if v_flop:
+            edge=1
+        else:
+            edge=0
+        loop_cnt     = 0
+        loop_cnt_out = 0
         #######################################
         #reorganize clean_coords              #
         #######################################
@@ -7348,62 +7729,174 @@ class Application(Frame):
             test_clean = self.v_clean_P.get() + self.v_clean_Y.get() + self.v_clean_X.get()
 
         rbit = self.calc_vbit_dia() / 2.0
-
-        clean_w = self.calc_clean_width()
-        #clean_w   = float(self.clean_w.get())
         check_coords=[]
-
+       
         self.statusbar.configure( bg = 'yellow' )
         if bit_type=="straight":
             self.statusMessage.set('Calculating Cleanup Cut Paths')
             self.master.update()
             self.clean_coords_sort   = []
-
-            input_step_over = float(self.clean_step.get()) #percent of cut DIA
-            min_step_over = 25 #percent of cut DIA
-            skip = ceil(input_step_over/min_step_over)
-            step_over = input_step_over/skip
-
             clean_dia = float(self.clean_dia.get()) #diameter of cleanup bit
+            v_step_len = float(self.v_step_len.get()) 
+            step_over = float(self.clean_step.get()) #percent of cut DIA
             clean_step = step_over/100.0
             Radjust   = clean_dia/2.0 + rbit
             check_coords = self.clean_coords
 
         elif bit_type == "v-bit":
+            self.statusMessage.set('Calculating V-Bit Cleanup Cut Paths')
             skip = 1
             clean_step = 1.0
-            self.statusMessage.set('Calculating V-Bit Cleanup Cut Paths')
+            
             self.master.update()
             self.v_clean_coords_sort = []
 
             clean_dia  = float(self.clean_v.get())*2.0  #effective diameter of clean-up v-bit
             if float(clean_dia) < Zero:
                 return
-            # We could add something to the readjust line to let the cutter go closer
-            # to the limit but avoid contact with the previously v-carved surface.
-            Radjust   = clean_dia/2.0 + rbit
-            flat_clean_r = float(self.clean_dia.get())/2.0 #diameter of cleanup bit
+            # The next line allows the cutter to get within 1/4 of the
+            # v-clean step of the v-carved surface.
+            offset = clean_dia/4.0 
+            Radjust   =  rbit + offset
+            flat_clean_r = float(self.clean_dia.get())/2.0
             for line in self.clean_coords:
                 XY    = line
-                R = XY[2]-Radjust
-                if (R > 0.0) and (R < flat_clean_r):
+                R = XY[2] - Radjust
+                if (R > 0.0) and (R < flat_clean_r - offset - Zero):
                     check_coords.append(XY)
 
-
+        clean_coords_out=[]
         if self.cut_type.get() == "v-carve" and len(self.clean_coords) > 1 and test_clean > 0:
             DX = clean_dia*clean_step
             DY = DX
-
+            
             if bit_type=="straight":
                 MAXD=clean_dia
             else:
-                MAXD=sqrt(DX**2+DY**2)*1.1
+                MAXD=sqrt(DX**2+DY**2)*1.1  #fudge factor
 
             Xclean_coords=[]
             Yclean_coords=[]
             clean_coords_out=[]
+            
+            ## NEW STUFF FOR STRAIGHT BIT ##
+            if bit_type=="straight":
+                MaxLoop=0
+                clean_dia  = float(self.clean_dia.get()) #diameter of cleanup bit
+                step_over  = float(self.clean_step.get()) #percent of cut DIA
+                clean_step = step_over/100.0
+                Rperimeter = rbit + (clean_dia/2.0)
+                
+                ###################################################
+                # Extract straight bit points from clean_coords
+                ###################################################
+                check_coords=[]
+                junk=-1
+                for line in self.clean_coords:
+                    XY = line
+                    R  = XY[2]
+                    if (R >= Rperimeter-Zero):
+                        check_coords.append(XY)
+                    elif (len(check_coords)>0):
+                        junk=junk-1
+                        check_coords.append([None, None, None, junk])
+                        #check_coords[len(check_coords)-1][3]=junk
+                ###################################################
+                # Calculate Straight bit "Perimeter" tool path ####
+                ###################################################
+                P_coords = []
+                loop_coords = self.Clean_coords_to_Path_coords(check_coords)
+                loop_coords = self.sort_for_v_carve(loop_coords,LN_START=0)
 
-            if test_clean > 0:
+                #######################
+                #Line fit loop_coords
+                #######################
+                P_coords=[]
+                if loop_coords:
+                    loop_coords_lin=[]
+                    cuts=[]
+                    Ln_last = loop_coords[0][4]
+                    for i in range(len(loop_coords)):
+                        Ln = loop_coords[i][4]
+                        if (Ln != Ln_last):
+                            for move, (x, y, z), cent in douglas(cuts, tolerance=0.0001, plane=None):
+                                P_coords.append([x,y,clean_dia/2,Ln_last])
+                            cuts=[]
+                        cuts.append( [loop_coords[i][0],loop_coords[i][1],0] )
+                        cuts.append( [loop_coords[i][2],loop_coords[i][3],0] )
+                        Ln_last = Ln
+                    if cuts:
+                        for move, (x, y, z), cent in douglas(cuts, tolerance=0.0001, plane=None):
+                            P_coords.append([x,y,clean_dia/2,Ln_last])
+                ##################### 
+                loop_coords = self.Clean_coords_to_Path_coords(P_coords)
+                # Find min/max values for x,y and the highest loop number
+                x_pmin= 99999
+                x_pmax=-99999
+                y_pmin= 99999
+                y_pmax=-99999
+                for i in range(len(P_coords)):
+                    MaxLoop= max(MaxLoop,P_coords[i][3])
+                    x_pmin = min(x_pmin, P_coords[i][0])
+                    x_pmax = max(x_pmax, P_coords[i][0])
+                    y_pmin = min(y_pmin, P_coords[i][1])
+                    y_pmax = max(y_pmax, P_coords[i][1])
+                loop_cnt_out = loop_cnt_out + MaxLoop
+
+                if (self.clean_P.get() == 1):
+                    clean_coords_out = P_coords
+
+                offset = DX/2.0
+                if (self.clean_X.get() == 1):                    
+                    y_pmax = y_pmax-offset
+                    y_pmin = y_pmin+offset
+                    Ysize = y_pmax - y_pmin
+                    Ysteps = ceil( Ysize /(clean_dia*clean_step) )
+                    if (Ysteps>0):
+                        dY = Ysize / Ysteps
+                        for iY in range(0,int(Ysteps+1)):
+                            y = y_pmin + iY/Ysteps * (y_pmax-y_pmin)
+                            intXYlist=[]
+                            intXYlist = self.DetectIntersect([x_pmin-1,y],[x_pmax+1,y],loop_coords,XY_T_F=True)
+                            intXY_len = len(intXYlist)
+
+                            for i in range(edge,intXY_len-1-edge,2):
+                                x1 = intXYlist[i][0]
+                                y1 = intXYlist[i][1]
+                                x2 = intXYlist[i+1][0]
+                                y2 = intXYlist[i+1][1]
+                                if ((x2-x1) > offset*2):
+                                    loop_cnt=loop_cnt+1
+                                    Xclean_coords.append([x1+offset,y1,loop_cnt])
+                                    Xclean_coords.append([x2-offset,y2,loop_cnt])
+                            
+                if (self.clean_Y.get() == 1):                    
+                    x_pmax = x_pmax-offset
+                    x_pmin = x_pmin+offset
+                    Xsize = x_pmax - x_pmin
+                    Xsteps = ceil( Xsize /(clean_dia*clean_step) )
+                    if (Xsteps>0):
+                        dX = Xsize / Xsteps
+                        for iX in range(0,int(Xsteps+1)):
+                            x = x_pmin + iX/Xsteps * (x_pmax-x_pmin)
+                            intXYlist=[]
+                            intXYlist = self.DetectIntersect([x,y_pmin-1],[x,y_pmax+1],loop_coords,XY_T_F=True)
+                            intXY_len = len(intXYlist)
+                            for i in range(edge,intXY_len-1-edge,2):
+                                x1 = intXYlist[i][0]
+                                y1 = intXYlist[i][1]
+                                x2 = intXYlist[i+1][0]
+                                y2 = intXYlist[i+1][1]
+                                if ((y2-y1) > offset*2):
+                                    loop_cnt=loop_cnt+1
+                                    Yclean_coords.append([x1,y1+offset,loop_cnt])
+                                    Yclean_coords.append([x2,y2-offset,loop_cnt])                
+            ## END NEW STUFF FOR STRAIGHT BIT ##
+
+            #######################################
+            ## START V-BIT CLEANUP CALCULATIONS  ##
+            #######################################
+            elif bit_type == "v-bit":
                 #########################################################################
                 # Find ends of horizontal lines for carving clean-up
                 #########################################################################
@@ -7414,13 +7907,10 @@ class Application(Frame):
                 #########################################################################
                 Yclean_perimeter,Yclean_coords = self.Find_Paths(check_coords,clean_dia,Radjust,clean_step,skip,"Y")
 
-                loop_cnt = 0
                 #######################################################
                 # Find new order based on distance                    #
                 #######################################################
-                if (self.clean_P.get() == 1 and bit_type != "v-bit") or \
-                   (self.v_clean_P.get() == 1 and bit_type == "v-bit"):
-
+                if (self.v_clean_P.get() == 1):
                     ########################################
                     ecoords=[]
                     for line in Xclean_perimeter:
@@ -7466,7 +7956,6 @@ class Application(Frame):
                     y_start_loop = -8888
                     x_old=-999
                     y_old=-999
-                    loop_cnt=1
                     for i in order_out:
                         x1   = ecoords[i][0]
                         y1   = ecoords[i][1]
@@ -7477,75 +7966,77 @@ class Application(Frame):
                             dx = x_start_loop-x_old
                             dy = y_start_loop-y_old
                             dist = sqrt(dx*dx + dy*dy)
-                            if dist < MAXD:
-                                clean_coords_out.append([x_start_loop,y_start_loop,clean_dia/2,loop_cnt])
-                            loop_cnt=loop_cnt+1
+                            # Fully close loop if the current point is close enough to the start of the loop
+                            if dist < MAXD: 
+                                clean_coords_out.append([x_start_loop,y_start_loop,clean_dia/2,loop_cnt_out])
+                            loop_cnt_out=loop_cnt_out+1
                             x_start_loop=x1
                             y_start_loop=y1
-                        clean_coords_out.append([x1,y1,clean_dia/2,loop_cnt])
+                        clean_coords_out.append([x1,y1,clean_dia/2,loop_cnt_out])
                         x_old=x1
                         y_old=y1
+            #####################################
+            ## END V-BIT CLEANUP CALCULATIONS  ##
+            #####################################
 
-                ###########################################################
-                # Now deal with the horizontal line cuts
-                ###########################################################
-                if (self.clean_X.get() == 1 and bit_type != "v-bit") or \
-                   (self.v_clean_X.get() == 1 and bit_type == "v-bit"):
-                    x_old=-999
-                    y_old=-999
-                    order_out=self.Sort_Paths(Xclean_coords)
-                    loop_old=-1
-                    for line in order_out:
-                        temp=line
-                        if temp[0] > temp[1]:
-                            step = -1
-                        else:
-                            step = 1
-                        for i in range(temp[0],temp[1]+step,step):
-                            x1   = Xclean_coords[i][0]
-                            y1   = Xclean_coords[i][1]
-                            loop = Xclean_coords[i][2]
-                            dx = x1-x_old
-                            dy = y1-y_old
-                            dist = sqrt(dx*dx + dy*dy)
-                            if dist > MAXD and loop != loop_old:
-                                loop_cnt=loop_cnt+1
-                            clean_coords_out.append([x1,y1,clean_dia/2,loop_cnt])
-                            x_old=x1
-                            y_old=y1
-                            loop_old=loop
+            ###########################################################
+            # Now deal with the horizontal line cuts
+            ###########################################################
+            if (self.clean_X.get()   == 1 and bit_type != "v-bit") or \
+               (self.v_clean_X.get() == 1 and bit_type == "v-bit"):
+                x_old=-999
+                y_old=-999
+                order_out=self.Sort_Paths(Xclean_coords)
+                loop_old=-1
+                for line in order_out:
+                    temp=line
+                    if temp[0] > temp[1]:
+                        step = -1
+                    else:
+                        step = 1
+                    for i in range(temp[0],temp[1]+step,step):
+                        x1   = Xclean_coords[i][0]
+                        y1   = Xclean_coords[i][1]
+                        loop = Xclean_coords[i][2]
+                        dx = x1-x_old
+                        dy = y1-y_old
+                        dist = sqrt(dx*dx + dy*dy)
+                        if dist > MAXD and loop != loop_old:
+                            loop_cnt_out=loop_cnt_out+1
+                        clean_coords_out.append([x1,y1,clean_dia/2,loop_cnt_out])
+                        x_old=x1
+                        y_old=y1
+                        loop_old=loop
 
-
-                ###########################################################
-                # Now deal with the vertical line cuts
-                ###########################################################
-                if (self.clean_Y.get() == 1 and bit_type != "v-bit") or \
-                   (self.v_clean_Y.get() == 1 and bit_type == "v-bit"):
-                    x_old=-999
-                    y_old=-999
-                    order_out=self.Sort_Paths(Yclean_coords)
-                    loop_old=-1
-                    for line in order_out:
-                        temp=line
-                        if temp[0] > temp[1]:
-                            step = -1
-                        else:
-                            step = 1
-                        for i in range(temp[0],temp[1]+step,step):
-                            x1   = Yclean_coords[i][0]
-                            y1   = Yclean_coords[i][1]
-                            loop = Yclean_coords[i][2]
-                            dx = x1-x_old
-                            dy = y1-y_old
-                            dist = sqrt(dx*dx + dy*dy)
-                            if dist > MAXD and loop != loop_old:
-                                loop_cnt=loop_cnt+1
-                            clean_coords_out.append([x1,y1,clean_dia/2,loop_cnt])
-                            x_old=x1
-                            y_old=y1
-                            loop_old=loop
-
-
+            ###########################################################
+            # Now deal with the vertical line cuts
+            ###########################################################
+            if (self.clean_Y.get()   == 1 and bit_type != "v-bit") or \
+               (self.v_clean_Y.get() == 1 and bit_type == "v-bit"):
+                x_old=-999
+                y_old=-999
+                order_out=self.Sort_Paths(Yclean_coords)
+                loop_old=-1
+                for line in order_out:
+                    temp=line
+                    if temp[0] > temp[1]:
+                        step = -1
+                    else:
+                        step = 1
+                    for i in range(temp[0],temp[1]+step,step):
+                        x1   = Yclean_coords[i][0]
+                        y1   = Yclean_coords[i][1]
+                        loop = Yclean_coords[i][2]
+                        dx = x1-x_old
+                        dy = y1-y_old
+                        dist = sqrt(dx*dx + dy*dy)
+                        if dist > MAXD and loop != loop_old:
+                            loop_cnt_out=loop_cnt_out+1
+                        clean_coords_out.append([x1,y1,clean_dia/2,loop_cnt_out])
+                        x_old=x1
+                        y_old=y1
+                        loop_old=loop
+                        
             self.entry_set(self.Entry_CLEAN_DIA, self.Entry_CLEAN_DIA_Check()     ,1)
             self.entry_set(self.Entry_STEP_OVER, self.Entry_STEP_OVER_Check()     ,1)
             self.entry_set(self.Entry_V_CLEAN,     self.Entry_V_CLEAN_Check()     ,1)
@@ -7557,9 +8048,81 @@ class Application(Frame):
         self.statusMessage.set('Done Calculating Cleanup Cut Paths')
         self.statusbar.configure( bg = 'white' )
         self.master.update_idletasks()
-        #######################################
-        #End Reorganize                       #
-        #######################################
+    #######################################
+    #End Reorganize                       #
+    #######################################
+
+
+    #####################################################
+    ### Find intersecting lines
+    #####################################################
+    def DetectIntersect(self, Coords0,Coords1,lcoords,XY_T_F=True):
+        [x0,y0]=Coords0
+        [x1,y1]=Coords1
+        Zero = 1e-6
+        all_intersects = []
+        Xint_list = []
+        numcoords = len(lcoords)
+        if numcoords < 1:
+            return False
+        
+        dx = x1-x0
+        dy = y1-y0
+        len_seg = sqrt(dx*dx+dy*dy)
+
+        if len_seg < Zero:
+            if XY_T_F==False:
+                return False
+            else:
+                return []
+            
+        seg_sin = dy/len_seg
+        seg_cos = dx/len_seg    
+        Xint_local = 0
+        
+        for ii in range(0,numcoords):
+            x2 = lcoords[ii][0]
+            y2 = lcoords[ii][1]      
+            x3 = lcoords[ii][2]
+            y3 = lcoords[ii][3]
+            
+            xr0 = (x2-x0)*seg_cos + (y2-y0)*seg_sin
+            yr0 = (x2-x0)*seg_sin - (y2-y0)*seg_cos
+            xr1 = (x3-x0)*seg_cos + (y3-y0)*seg_sin
+            yr1 = (x3-x0)*seg_sin - (y3-y0)*seg_cos
+            yrmax = max(yr0,yr1)
+            yrmin = min(yr0,yr1)
+            if (yrmin < Zero and yrmax > Zero):
+                dxr = xr1-xr0
+                if (abs(dxr) < Zero):
+                    if (xr0 > Zero and xr0 < len_seg-Zero):
+                        Xint_local = xr0 #True
+                else:
+                    dyr = yr1-yr0;
+                    mr  = dyr/dxr;
+                    br  = yr1 - mr * xr1
+                    xint= -br/mr
+                    if (xint > Zero and xint < len_seg-Zero):
+                        Xint_local = xint #True
+                        
+                # Check if there was a intersection detected
+                if (Xint_local != 0):
+                    if XY_T_F==False:
+                        return True
+                    else:
+                        Xint_list.append(Xint_local)
+                        Xint_local = 0
+            
+        if XY_T_F==False:
+            return False
+        else:
+            if len(Xint_list) > 0:
+                Xint_list.sort()
+                for Xint_local in Xint_list:
+                    Xint = Xint_local * seg_cos + x0
+                    Yint = Xint_local * seg_sin + y0
+                    all_intersects.append([Xint,Yint])
+            return all_intersects
 
 
     ################################################################################
@@ -7676,7 +8239,7 @@ class Application(Frame):
 #                         General Settings Window                              #
 ################################################################################
     def GEN_Settings_Window(self):
-        gen_settings = Toplevel(width=600, height=480)
+        gen_settings = Toplevel(width=600, height=500)
         gen_settings.grab_set() # Use grab_set to prevent user input in the main window during calculations
         gen_settings.resizable(0,0)
         gen_settings.title('Settings')
@@ -7700,23 +8263,25 @@ class Application(Frame):
         D_dY = 24
         xd_label_L = 12
 
-        w_label=110+25
+        dlta=40
+        w_label=110+25+dlta
         w_entry=60
         w_units=35
-        xd_entry_L=xd_label_L+w_label+10
+        xd_entry_L=xd_label_L+w_label+10 +dlta
         xd_units_L=xd_entry_L+w_entry+5
+        x_radio_offset=62
 
         #Radio Button
         D_Yloc=D_Yloc+D_dY
         self.Label_Units = Label(gen_settings,text="Units")
-        self.Label_Units.place(x=xd_label_L, y=D_Yloc, width=113, height=21)
-        self.Radio_Units_IN = Radiobutton(gen_settings,text="inch", value="in",
-                                         width="100", anchor=W)
-        self.Radio_Units_IN.place(x=w_label+22, y=D_Yloc, width=75, height=23)
+        self.Label_Units.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        
+        self.Radio_Units_IN = Radiobutton(gen_settings,text="inch", value="in", width="100", anchor=W)
+        self.Radio_Units_IN.place(x=w_label+x_radio_offset, y=D_Yloc, width=75, height=23)
         self.Radio_Units_IN.configure(variable=self.units, command=self.Entry_units_var_Callback )
-        self.Radio_Units_MM = Radiobutton(gen_settings,text="mm", value="mm",
-                                         width="100", anchor=W)
-        self.Radio_Units_MM.place(x=w_label+110, y=D_Yloc, width=75, height=23)
+
+        self.Radio_Units_MM = Radiobutton(gen_settings,text="mm", value="mm", width="100", anchor=W)
+        self.Radio_Units_MM.place(x=w_label+x_radio_offset+60, y=D_Yloc, width=75, height=23)
         self.Radio_Units_MM.configure(variable=self.units, command=self.Entry_units_var_Callback )
 
 
@@ -7777,15 +8342,15 @@ class Application(Frame):
         self.Label_arcfit.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
         self.Radio_arcfit_none = Radiobutton(gen_settings,text="None", \
                                             value="none", width="110", anchor=W)
-        self.Radio_arcfit_none.place(x=w_label+22, y=D_Yloc, width=90, height=23)
+        self.Radio_arcfit_none.place(x=w_label+x_radio_offset, y=D_Yloc, width=90, height=23)
         self.Radio_arcfit_none.configure(variable=self.arc_fit )
         self.Radio_arcfit_radius = Radiobutton(gen_settings,text="Radius Format", \
                                             value="radius", width="110", anchor=W)
-        self.Radio_arcfit_radius.place(x=w_label+22+65, y=D_Yloc, width=100, height=23)
+        self.Radio_arcfit_radius.place(x=w_label+x_radio_offset+65, y=D_Yloc, width=100, height=23)
         self.Radio_arcfit_radius.configure(variable=self.arc_fit )
         self.Radio_arcfit_center = Radiobutton(gen_settings,text="Center Format", \
                                             value="center", width="110", anchor=W)
-        self.Radio_arcfit_center.place(x=w_label+22+65+115, y=D_Yloc, width=100, height=23)
+        self.Radio_arcfit_center.place(x=w_label+x_radio_offset+65+115, y=D_Yloc, width=100, height=23)
         self.Radio_arcfit_center.configure(variable=self.arc_fit )
 
         D_Yloc=D_Yloc+D_dY
@@ -7817,25 +8382,28 @@ class Application(Frame):
         self.Checkbutton_var_dis.configure(variable=self.var_dis)
 
         D_Yloc=D_Yloc+D_dY
+        font_entry_width=215
         self.Label_Fontdir = Label(gen_settings,text="Font Directory")
         self.Label_Fontdir.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
         self.Entry_Fontdir = Entry(gen_settings,width="15")
-        self.Entry_Fontdir.place(x=xd_entry_L, y=D_Yloc, width=300, height=23)
+        self.Entry_Fontdir.place(x=xd_entry_L, y=D_Yloc, width=font_entry_width, height=23)
         self.Entry_Fontdir.configure(textvariable=self.fontdir)
         self.Fontdir = Button(gen_settings,text="Select Dir")
-        self.Fontdir.place(x=xd_entry_L+310, y=D_Yloc, width=w_label-25, height=23)
+        self.Fontdir.place(x=xd_entry_L+font_entry_width+10, y=D_Yloc, width=w_label-80, height=23)
 
         D_Yloc=D_Yloc+D_dY
         self.Label_Hcalc = Label(gen_settings,text="Height Calculation")
-        self.Label_Hcalc.place(x=xd_label_L, y=D_Yloc, width=113, height=21)        
-        self.Radio_Hcalc_ALL = Radiobutton(gen_settings,text="Max All", \
-                                            value="max_all", width="110", anchor=W)
-        self.Radio_Hcalc_ALL.place(x=w_label+110, y=D_Yloc, width=90, height=23)
-        self.Radio_Hcalc_ALL.configure(variable=self.H_CALC )
+        self.Label_Hcalc.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)        
+
         self.Radio_Hcalc_USE = Radiobutton(gen_settings,text="Max Used", \
                                             value="max_use", width="110", anchor=W)
-        self.Radio_Hcalc_USE.place(x=w_label+22, y=D_Yloc, width=90, height=23)
+        self.Radio_Hcalc_USE.place(x=w_label+x_radio_offset, y=D_Yloc, width=90, height=23)
         self.Radio_Hcalc_USE.configure(variable=self.H_CALC )
+
+        self.Radio_Hcalc_ALL = Radiobutton(gen_settings,text="Max All", \
+                                            value="max_all", width="110", anchor=W)
+        self.Radio_Hcalc_ALL.place(x=w_label+x_radio_offset+90, y=D_Yloc, width=90, height=23)
+        self.Radio_Hcalc_ALL.configure(variable=self.H_CALC )
 
         if self.input_type.get() != "text":
                 self.Entry_Fontdir.configure(state="disabled")
@@ -7847,28 +8415,33 @@ class Application(Frame):
 
         D_Yloc=D_Yloc+24
         self.Label_Box = Label(gen_settings,text="Add Box/Circle")
-        self.Label_Box.place(x=xd_label_L, y=D_Yloc, width=113, height=21)
-        self.Radio_Box_N = Radiobutton(gen_settings,text="No", value="no_box", anchor=W)
-        self.Radio_Box_N.place(x=w_label+22, y=D_Yloc, width=55, height=23) #132
-        self.Radio_Box_N.configure(variable=self.plotbox )
-        self.Radio_Box_Y = Radiobutton(gen_settings,text="Yes", value="box", anchor=W)
-        self.Radio_Box_Y.place(x=w_label+75, y=D_Yloc, width=55, height=23) #185
-        self.Radio_Box_Y.configure(variable=self.plotbox )
+        self.Label_Box.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+
+        self.Checkbutton_plotbox = Checkbutton(gen_settings,text="", anchor=W)
+        self.Checkbutton_plotbox.place(x=xd_entry_L, y=D_Yloc, width=75, height=23)
+        self.Checkbutton_plotbox.configure(variable=self.plotbox)
+        self.plotbox.trace_variable("w", self.Entry_Box_Callback)
 
         self.Label_BoxGap = Label(gen_settings,text="Box/Circle Gap:", anchor=E)
-        self.Label_BoxGap.place(x=w_label+125, y=D_Yloc, width=w_label, height=21) #252
+        self.Label_BoxGap.place(x=w_label+x_radio_offset+25, y=D_Yloc, width=125, height=21)
         self.Entry_BoxGap = Entry(gen_settings)
-        self.Entry_BoxGap.place(x=w_label+262, y=D_Yloc, width=w_entry, height=23) #372
+        self.Entry_BoxGap.place(x=w_label+x_radio_offset+165, y=D_Yloc, width=w_entry, height=23)
         self.Entry_BoxGap.configure(textvariable=self.boxgap)
         self.boxgap.trace_variable("w", self.Entry_BoxGap_Callback)
         self.Label_BoxGap_u = Label(gen_settings,textvariable=self.units, anchor=W)
-
-        self.Label_BoxGap_u.place(x=w_label+325, y=D_Yloc, width=100, height=21) #435
+        self.Label_BoxGap_u.place(x=w_label+x_radio_offset+230, y=D_Yloc, width=100, height=21)
         self.entry_set(self.Entry_BoxGap,self.Entry_BoxGap_Check(),2)
 
+        D_Yloc=D_Yloc+D_dY
+        self.Label_v_pplot = Label(gen_settings,text="Plot During V-Carve Calculation")
+        self.Label_v_pplot.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+        self.Checkbutton_v_pplot = Checkbutton(gen_settings,text="", anchor=W)
+        self.Checkbutton_v_pplot.place(x=xd_entry_L, y=D_Yloc, width=75, height=23)
+        self.Checkbutton_v_pplot.configure(variable=self.v_pplot)
+        
         D_Yloc=D_Yloc+D_dY+10
         self.Label_SaveConfig = Label(gen_settings,text="Configuration File")
-        self.Label_SaveConfig.place(x=xd_label_L, y=D_Yloc, width=113, height=21)
+        self.Label_SaveConfig.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
         self.GEN_SaveConfig = Button(gen_settings,text="Save")
         self.GEN_SaveConfig.place(x=xd_entry_L, y=D_Yloc, width=w_entry, height=21, anchor="nw")
         self.GEN_SaveConfig.bind("<ButtonRelease-1>", self.Write_Config_File)
@@ -7894,7 +8467,7 @@ class Application(Frame):
     #                         V-Carve Settings window                              #
     ################################################################################
     def VCARVE_Settings_Window(self):
-        vcarve_settings = Toplevel(width=580, height=620+25) #+100
+        vcarve_settings = Toplevel(width=580, height=690)
         vcarve_settings.grab_set() # Use grab_set to prevent user input in the main window during calculations
         vcarve_settings.resizable(0,0)
         vcarve_settings.title('V-Carve Settings')
@@ -8000,16 +8573,51 @@ class Application(Frame):
         self.v_step_len.trace_variable("w", self.Entry_StepSize_Callback)
         self.entry_set(self.Entry_StepSize, self.Entry_StepSize_Check(),2)
 
-        D_Yloc=D_Yloc+D_dY
-        self.Label_v_flop = Label(vcarve_settings,text="Flip Normals (V-Carve Side)")
+        D_Yloc=D_Yloc+D_dY+12
+        self.vcarve_separator00 = Frame(vcarve_settings,height=2, bd=1, relief=SUNKEN)
+        self.vcarve_separator00.place(x=0, y=D_Yloc,width=580, height=2)
+        
+        D_Yloc=D_Yloc+D_dY-12
+        self.Label_v_flop = Label(vcarve_settings,text="Flip Normals (Cut Outside)")
         self.Label_v_flop.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
         self.Checkbutton_v_flop = Checkbutton(vcarve_settings,text="", anchor=W)
         self.Checkbutton_v_flop.place(x=xd_entry_L, y=D_Yloc, width=75, height=23)
         self.Checkbutton_v_flop.configure(variable=self.v_flop)
         self.v_flop.trace_variable("w", self.Entry_recalc_var_Callback)
 
-        D_Yloc=D_Yloc+D_dY
-        self.Label_inlay = Label(vcarve_settings,text="Prismatic (Inlay)")
+        x_radio_offset = 62-40
+        D_Yloc=D_Yloc+24
+        self.Label_vBox = Label(vcarve_settings,text="Add Box (Flip Normals)")
+        self.Label_vBox.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
+
+        self.Checkbutton_plotbox = Checkbutton(vcarve_settings,text="", anchor=W)
+        self.Checkbutton_plotbox.place(x=xd_entry_L, y=D_Yloc, width=75, height=23)
+        self.Checkbutton_plotbox.configure(variable=self.plotbox)
+        self.plotbox.trace_variable("w", self.Entry_Box_Callback)
+
+        self.Label_BoxGap = Label(vcarve_settings,text="Box Gap:", anchor=E)
+        self.Label_BoxGap.place(x=w_label+x_radio_offset+25, y=D_Yloc, width=75, height=21)
+        self.Entry_BoxGap = Entry(vcarve_settings)
+        self.Entry_BoxGap.place(x=w_label+x_radio_offset+110, y=D_Yloc, width=w_entry, height=23)
+        self.Entry_BoxGap.configure(textvariable=self.boxgap)
+        self.boxgap.trace_variable("w", self.Entry_BoxGap_Callback)
+        self.Label_BoxGap_u = Label(vcarve_settings,textvariable=self.units, anchor=W)
+        self.Label_BoxGap_u.place(x=w_label+x_radio_offset+305, y=D_Yloc, width=100, height=21)
+        self.entry_set(self.Entry_BoxGap,self.Entry_BoxGap_Check(),2)
+
+        self.Label_BoxGap_u = Label(vcarve_settings,textvariable=self.units, anchor=W)
+        self.Label_BoxGap_u.place(x=w_label+x_radio_offset+175, y=D_Yloc, width=100, height=21)
+
+        self.GEN_Reload = Button(vcarve_settings,text="Recalculate")
+        self.GEN_Reload.place(x=580-10, y=D_Yloc, width=90, height=25, anchor="ne")
+        self.GEN_Reload.bind("<ButtonRelease-1>", self.Recalculate_Click)
+        
+        D_Yloc=D_Yloc+D_dY+12
+        self.vcarve_separator0 = Frame(vcarve_settings,height=2, bd=1, relief=SUNKEN)
+        self.vcarve_separator0.place(x=0, y=D_Yloc,width=580, height=2)
+
+        D_Yloc=D_Yloc+D_dY-12
+        self.Label_inlay = Label(vcarve_settings,text="Prismatic (For inlay also select Add Box)")
         self.Label_inlay.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
         self.Checkbutton_inlay = Checkbutton(vcarve_settings,text="", anchor=W)
         self.Checkbutton_inlay.place(x=xd_entry_L, y=D_Yloc, width=75, height=23)
@@ -8026,13 +8634,6 @@ class Application(Frame):
         self.Entry_Allowance.configure(textvariable=self.allowance)
         self.allowance.trace_variable("w", self.Entry_Allowance_Callback)
         self.entry_set(self.Entry_Allowance, self.Entry_Allowance_Check(),2)
-
-        D_Yloc=D_Yloc+D_dY
-        self.Label_v_pplot = Label(vcarve_settings,text="Plot During V-Carve Calculation")
-        self.Label_v_pplot.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
-        self.Checkbutton_v_pplot = Checkbutton(vcarve_settings,text="", anchor=W)
-        self.Checkbutton_v_pplot.place(x=xd_entry_L, y=D_Yloc, width=75, height=23)
-        self.Checkbutton_v_pplot.configure(variable=self.v_pplot)
 
         ### Update Idle tasks before requesting anything from winfo
         vcarve_settings.update_idletasks()
@@ -8091,6 +8692,16 @@ class Application(Frame):
             self.Label_Allowance.configure(state="normal")
             self.Entry_Allowance.configure(state="normal")
             self.Label_Allowance_u.configure(state="normal")
+
+        if not bool(self.plotbox.get()):
+            self.Label_BoxGap.configure(state="disabled")
+            self.Entry_BoxGap.configure(state="disabled")
+            self.Label_BoxGap_u.configure(state="disabled")
+        else:
+            self.Label_BoxGap.configure(state="normal")
+            self.Entry_BoxGap.configure(state="normal")
+            self.Label_BoxGap_u.configure(state="normal")
+            
                 
         ## Cleanup Settings ##
         D_Yloc=D_Yloc+D_dY+12
@@ -8370,6 +8981,10 @@ def douglas(st, tolerance=.001, plane=None, _first=True):
     if len(st) == 1:
         yield "G1", st[0], None
         return
+    #if len(st) < 1:
+    #    print "whaaaa!?"
+    #    #yield "G1", st[0], None
+    #    return
     
     L1 = st[0]
     L2 = st[-1]
@@ -8377,7 +8992,10 @@ def douglas(st, tolerance=.001, plane=None, _first=True):
     last_point = None
     while (abs(L1[0]-L2[0]) < Zero) and (abs(L1[1]-L2[1]) < Zero) and (abs(L1[2]-L2[2]) < Zero):
         last_point=st.pop()
-        L2 = st[-1]
+        try:
+            L2 = st[-1]
+        except:
+            return    
 
     worst_dist = 0
     worst_distz = 0 #added to fix out of plane inacuracy problem
@@ -8434,7 +9052,8 @@ def douglas(st, tolerance=.001, plane=None, _first=True):
 
     if worst_arc_dist < tolerance and worst_arc_dist < worst_dist:
         ccw = arc_dir(plane, (c1, c2), ps, st[max_arc], pe)
-        if plane == 18: ccw = not ccw
+        if plane == 18:
+            ccw = not ccw
         yield "G1", ps, None
         if ccw:
             yield "G3", st[-1], arc_fmt(plane, c1, c2, ps)
@@ -8600,17 +9219,39 @@ def arc_dir(plane, c, p1, p2, p3):
     x2, y2 = get_pts(plane, p2[0],p2[1],p2[2])
     x3, y3 = get_pts(plane, p3[0],p3[1],p3[2])
 
-    theta_start = atan2(y1-yc, x1-xc)
-    theta_mid = atan2(y2-yc, x2-xc)
-    theta_end = atan2(y3-yc, x3-xc)
+    #theta_start = atan2(y1-yc, x1-xc)
+    #theta_mid   = atan2(y2-yc, x2-xc)
+    #theta_end   = atan2(y3-yc, x3-xc)
 
-    if theta_mid < theta_start:
-        theta_mid = theta_mid + 2 * pi
-    while theta_end < theta_mid:
-        theta_end = theta_end + 2 * pi
+    theta_start = Get_Angle(y1-yc, x1-xc)
+    theta_mid   = Get_Angle(y2-yc, x2-xc) - theta_start
+    if (theta_mid < 0):
+        theta_mid = theta_mid + 360.0
+    theta_end   = Get_Angle(y3-yc, x3-xc)-theta_start
+    if (theta_end < 0):
+        theta_end = theta_end + 360.0
 
-    return theta_end < 2 * pi
+    theta_start = 0.0   
+    if (theta_end > theta_mid):
+        ccw=True
+    else:
+        ccw=False    
+    # The following values result in an incorect result
+    # with the old method of determining direction
+    # x1, y1 = 0.131980576, 1.103352326
+    # x2, y2 = 0.092166910, 1.083988473
+    # x3, y3 = 0.135566569, 1.103764645
+    # xc, yc = 0.141980825, 1.032178989
+    return ccw
 
+##########################################################################
+# routine takes an sin and cos and returns the angle (between 0 and 360) #
+##########################################################################
+def Get_Angle(y,x):
+    angle = 90.0-degrees(atan2(x,y))
+    if angle < 0:
+        angle = 360 + angle
+    return angle
 def arc_fmt(plane, c1, c2, p1):
     x, y, z = p1
     if plane == 17:
