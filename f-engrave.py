@@ -245,10 +245,14 @@
                  - Added DXF Export option (with and without auto closed loops)
 				 
     Version 1.60 - Fixed divide by zero error in some cleanup sceneries.
+
+    Version 1.61 - Fixed a bug that prevented opening DXF files that contain no features with positive Y coordinates
+
+	Version 1.62 - Fixed a bug that resulted in bad cleanup tool paths in some situations
     
     """
 
-version = '1.60'
+version = '1.62'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 
@@ -286,10 +290,10 @@ if PIL == True:
         from PIL import ImageOps
         import _imaging
     except:
-        try:
-            from PIL.Image import core as _imaging # for debian jessie
-        except:
-            PIL = False
+        #try:
+        #    from PIL.Image import core as _imaging # for debian jessie
+        #except:
+        PIL = False
 
 
 from math import *
@@ -1669,8 +1673,6 @@ class Application(Frame):
         #    fmessage("Python Imaging Library (PIL) was not found...Bummer")
         #    fmessage("    PIL enables more image file formats.")
 
-        os.environ["PATH"] += os.pathsep + "." + os.pathsep + "/usr/local/bin"
-        
         cmd = ["ttf2cxf_stream","TEST","STDOUT"]
         try:
             p = Popen(cmd, stdout=PIPE, stderr=PIPE)
@@ -3405,13 +3407,17 @@ class Application(Frame):
         # Create a header section just in case the reading software needs it
         dxf_code.append("999")
         dxf_code.append("DXF created by G-Code Ripper <by Scorch, www.scorchworks.com>")
-        
         dxf_code.append("0")
         dxf_code.append("SECTION")
         dxf_code.append("2")
         dxf_code.append("HEADER")
+        #dxf_code.append("9")
+        #dxf_code.append("$INSUNITS")
+        #dxf_code.append("70")
+        #dxf_code.append("1") #units 1 = Inches; 4 = Millimeters;
         dxf_code.append("0")
         dxf_code.append("ENDSEC")
+
         #         
         #Tables Section
         #These can be used to specify predefined constants, line styles, text styles, view 
@@ -4020,16 +4026,22 @@ class Application(Frame):
         return 0         # Value is a valid number
     def Entry_BoxGap_Callback(self, varName, index, mode):
         self.entry_set(self.Entry_BoxGap,self.Entry_BoxGap_Check())
-        if not bool(self.plotbox.get()):
-            self.Label_BoxGap.configure(state="disabled")
-            self.Entry_BoxGap.configure(state="disabled")
-            self.Label_BoxGap_u.configure(state="disabled")
-        else:
-            self.Label_BoxGap.configure(state="normal")
-            self.Entry_BoxGap.configure(state="normal")
-            self.Label_BoxGap_u.configure(state="normal")
+        try:
+            if not bool(self.plotbox.get()):
+                self.Label_BoxGap.configure(state="disabled")
+                self.Entry_BoxGap.configure(state="disabled")
+                self.Label_BoxGap_u.configure(state="disabled")
+            else:
+                self.Label_BoxGap.configure(state="normal")
+                self.Entry_BoxGap.configure(state="normal")
+                self.Label_BoxGap_u.configure(state="normal")
+        except:
+            pass
     def Entry_Box_Callback(self, varName, index, mode):
-        self.Entry_BoxGap_Callback(varName, index, mode)
+        try:
+            self.Entry_BoxGap_Callback(varName, index, mode)
+        except:
+            pass
         self.Recalc_RQD()
     #############################
     def Fontdir_Click(self, event):
@@ -5142,7 +5154,7 @@ class Application(Frame):
                 self.Checkbutton_useIMGsize.place_forget()
 
                 # Left Column #
-                w_label=120 #90
+                w_label=90
                 w_entry=60
                 w_units=35
 
@@ -5296,15 +5308,15 @@ class Application(Frame):
                 self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
 
                 Ybut=self.h-60
-                self.V_Carve_Calc.place(x=x_label_R, y=Ybut, height=30)
+                self.V_Carve_Calc.place(x=x_label_R, y=Ybut, width=100, height=30)
 
                 Ybut=self.h-105
                 self.Radio_Cut_E.place(x=x_label_R, y=Ybut, width=185, height=23)
                 Ybut=self.h-85
                 self.Radio_Cut_V.place(x=x_label_R, y=Ybut, width=185, height=23)
 
-                self.PreviewCanvas.configure( width = self.w-485, height = self.h-160 )
-                self.PreviewCanvas_frame.place(x=250, y=10)
+                self.PreviewCanvas.configure( width = self.w-455, height = self.h-160 )
+                self.PreviewCanvas_frame.place(x=220, y=10)
                 self.Input_Label.place(x=222, y=self.h-130, width=112, height=21, anchor=W)
                 self.Input_frame.place(x=222, y=self.h-110, width=self.w-455, height=75)
 
@@ -5317,7 +5329,7 @@ class Application(Frame):
                 self.Label_flip.configure(text="Flip Image")
                 self.Label_mirror.configure(text="Mirror Image")
                 # Left Column #
-                w_label=120 #90
+                w_label=90
                 w_entry=60
                 w_units=35
 
@@ -5463,15 +5475,15 @@ class Application(Frame):
                 self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
 
                 Ybut=self.h-60
-                self.V_Carve_Calc.place(x=x_label_R+offset_R, y=Ybut, height=30)
+                self.V_Carve_Calc.place(x=x_label_R+offset_R, y=Ybut, width=100, height=30)
 
                 Ybut=self.h-105
                 self.Radio_Cut_E.place(x=x_label_R+offset_R, y=Ybut, width=w_label, height=23)
                 Ybut=self.h-85
                 self.Radio_Cut_V.place(x=x_label_R+offset_R, y=Ybut, width=w_label, height=23)
 
-                self.PreviewCanvas.configure( width = self.w-270, height = self.h-45 )
-                self.PreviewCanvas_frame.place(x=260, y=10)
+                self.PreviewCanvas.configure( width = self.w-240, height = self.h-45 )
+                self.PreviewCanvas_frame.place(x=230, y=10)
                 self.Input_Label.place_forget()
                 self.Input_frame.place_forget()
 
@@ -6138,11 +6150,12 @@ class Application(Frame):
         minx_tmp =  99995.0
 
         font_word_space  = 0
-        font_line_height = -1e10
-        font_char_width =  -1e10
-        font_used_height = -1e10
-        font_used_width  = -1e10
-        font_used_depth  =  1e10
+        INF = 1e10
+        font_line_height = -INF
+        font_char_width =  -INF
+        font_used_height = -INF
+        font_used_width  = -INF
+        font_used_depth  =  INF
 
         ################################
         ##      Font Index Preview    ##
@@ -6189,8 +6202,8 @@ class Application(Frame):
         elif self.H_CALC.get() == "max_use":
             font_line_height = font_used_height
             font_line_depth  = font_used_depth
-
-        if font_line_height > 0:
+            
+        if font_line_height > -INF:
             if (self.useIMGsize.get() and self.input_type.get()=="image"):
                 YScale = YScale_in/100.0
             else:
@@ -7025,17 +7038,17 @@ class Application(Frame):
                     if calc_flag != 0:
                         CUR_LENGTH = CUR_LENGTH + Lseg
                     else:
-                        theta = phi
-                        x0=x2
-                        y0=y2
-                        seg_sin0=seg_sin
-                        seg_cos0=seg_cos
-                        char_num0=char_num
+                        #theta = phi         #V1.62
+                        #x0=x2               #V1.62
+                        #y0=y2               #V1.62
+                        #seg_sin0=seg_sin    #V1.62
+                        #seg_cos0=seg_cos    #V1.62
+                        #char_num0=char_num  #V1.62
                         continue
 
 
                     
-                    if (fabs(x1-x0) > Zero or fabs(y1-y0) > Zero) or char_num != char_num0:
+                    if (fabs(x1-x0) > Zero) or (fabs(y1-y0) > Zero) or (char_num != char_num0):
                     #if char_num != char_num0:
                         New_Loop=1
                         loop_cnt=loop_cnt+1
@@ -8326,18 +8339,18 @@ class Application(Frame):
 
         D_Yloc=D_Yloc+D_dY
         self.Label_arcfit = Label(gen_settings,text="Arc Fitting")
-        self.Label_arcfit.place(x=xd_label_L, y=D_Yloc, width=w_label, height=23)
+        self.Label_arcfit.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
         self.Radio_arcfit_none = Radiobutton(gen_settings,text="None", \
-                                            value="none", width="60", anchor=W)
-        self.Radio_arcfit_none.place(x=xd_entry_L, y=D_Yloc, width=60, height=23)
+                                            value="none", width="110", anchor=W)
+        self.Radio_arcfit_none.place(x=w_label+x_radio_offset, y=D_Yloc, width=90, height=23)
         self.Radio_arcfit_none.configure(variable=self.arc_fit )
         self.Radio_arcfit_radius = Radiobutton(gen_settings,text="Radius Format", \
-                                            value="radius", width="130", anchor=W)
-        self.Radio_arcfit_radius.place(x=xd_entry_L+65, y=D_Yloc, width=120, height=23)
+                                            value="radius", width="110", anchor=W)
+        self.Radio_arcfit_radius.place(x=w_label+x_radio_offset+65, y=D_Yloc, width=100, height=23)
         self.Radio_arcfit_radius.configure(variable=self.arc_fit )
         self.Radio_arcfit_center = Radiobutton(gen_settings,text="Center Format", \
-                                            value="center", width="130", anchor=W)
-        self.Radio_arcfit_center.place(x=xd_entry_L+65+125, y=D_Yloc, width=120, height=23)
+                                            value="center", width="110", anchor=W)
+        self.Radio_arcfit_center.place(x=w_label+x_radio_offset+65+115, y=D_Yloc, width=100, height=23)
         self.Radio_arcfit_center.configure(variable=self.arc_fit )
 
         D_Yloc=D_Yloc+D_dY
@@ -8369,25 +8382,28 @@ class Application(Frame):
         self.Checkbutton_var_dis.configure(variable=self.var_dis)
 
         D_Yloc=D_Yloc+D_dY
+        font_entry_width=215
         self.Label_Fontdir = Label(gen_settings,text="Font Directory")
         self.Label_Fontdir.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
         self.Entry_Fontdir = Entry(gen_settings,width="15")
-        self.Entry_Fontdir.place(x=xd_entry_L, y=D_Yloc, width=240, height=23)
+        self.Entry_Fontdir.place(x=xd_entry_L, y=D_Yloc, width=font_entry_width, height=23)
         self.Entry_Fontdir.configure(textvariable=self.fontdir)
         self.Fontdir = Button(gen_settings,text="Select Dir")
-        self.Fontdir.place(x=xd_entry_L+250, y=D_Yloc, height=23)
+        self.Fontdir.place(x=xd_entry_L+font_entry_width+10, y=D_Yloc, width=w_label-80, height=23)
 
         D_Yloc=D_Yloc+D_dY
         self.Label_Hcalc = Label(gen_settings,text="Height Calculation")
         self.Label_Hcalc.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)        
-        self.Radio_Hcalc_ALL = Radiobutton(gen_settings,text="Max All", \
-                                            value="max_all", width="110", anchor=W)
-        self.Radio_Hcalc_ALL.place(x=xd_entry_L+110, y=D_Yloc, width=90, height=23)
-        self.Radio_Hcalc_ALL.configure(variable=self.H_CALC )
+
         self.Radio_Hcalc_USE = Radiobutton(gen_settings,text="Max Used", \
                                             value="max_use", width="110", anchor=W)
-        self.Radio_Hcalc_USE.place(x=xd_entry_L, y=D_Yloc, width=90, height=23)
+        self.Radio_Hcalc_USE.place(x=w_label+x_radio_offset, y=D_Yloc, width=90, height=23)
         self.Radio_Hcalc_USE.configure(variable=self.H_CALC )
+
+        self.Radio_Hcalc_ALL = Radiobutton(gen_settings,text="Max All", \
+                                            value="max_all", width="110", anchor=W)
+        self.Radio_Hcalc_ALL.place(x=w_label+x_radio_offset+90, y=D_Yloc, width=90, height=23)
+        self.Radio_Hcalc_ALL.configure(variable=self.H_CALC )
 
         if self.input_type.get() != "text":
                 self.Entry_Fontdir.configure(state="disabled")
@@ -8485,18 +8501,21 @@ class Application(Frame):
         self.Label_cutter_type = Label(vcarve_settings,text="Cutter Type")
         self.Label_cutter_type.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
 
-        self.Radio_Type_VBIT = Radiobutton(vcarve_settings,text="V-Bit", value="VBIT", anchor=W)
-        self.Radio_Type_VBIT.place(x=xd_entry_L, y=D_Yloc, height=21)
+        self.Radio_Type_VBIT = Radiobutton(vcarve_settings,text="V-Bit", value="VBIT",
+                                         width="100", anchor=W)
+        self.Radio_Type_VBIT.place(x=xd_entry_L, y=D_Yloc, width=w_label, height=21)
         self.Radio_Type_VBIT.configure(variable=self.bit_shape)
 
         D_Yloc=D_Yloc+24
-        self.Radio_Type_BALL = Radiobutton(vcarve_settings,text="Ball Nose", value="BALL", anchor=W)
-        self.Radio_Type_BALL.place(x=xd_entry_L, y=D_Yloc, height=21)
+        self.Radio_Type_BALL = Radiobutton(vcarve_settings,text="Ball Nose", value="BALL",
+                                         width="100", anchor=W)
+        self.Radio_Type_BALL.place(x=xd_entry_L, y=D_Yloc, width=w_label, height=21)
         self.Radio_Type_BALL.configure(variable=self.bit_shape)
 
         D_Yloc=D_Yloc+24
-        self.Radio_Type_STRAIGHT = Radiobutton(vcarve_settings,text="Straight", value="FLAT", anchor=W)
-        self.Radio_Type_STRAIGHT.place(x=xd_entry_L, y=D_Yloc, height=21)
+        self.Radio_Type_STRAIGHT = Radiobutton(vcarve_settings,text="Straight", value="FLAT",
+                                         width="100", anchor=W)
+        self.Radio_Type_STRAIGHT.place(x=xd_entry_L, y=D_Yloc, width=w_label, height=21)
         self.Radio_Type_STRAIGHT.configure(variable=self.bit_shape)
 
         self.bit_shape.trace_variable("w", self.Entry_Bit_Shape_var_Callback)
@@ -8732,13 +8751,13 @@ class Application(Frame):
 
         self.Checkbutton_clean_P = Checkbutton(vcarve_settings,text="P", anchor=W)
         self.Checkbutton_clean_P.configure(variable=self.clean_P)
-        self.Checkbutton_clean_P.place(x=xd_entry_L, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_clean_P.place(x=xd_entry_L, y=D_Yloc, width=w_entry+40, height=23)
         self.Checkbutton_clean_X = Checkbutton(vcarve_settings,text="X", anchor=W)
         self.Checkbutton_clean_X.configure(variable=self.clean_X)
-        self.Checkbutton_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=w_entry+40, height=23)
         self.Checkbutton_clean_Y = Checkbutton(vcarve_settings,text="Y", anchor=W)
         self.Checkbutton_clean_Y.configure(variable=self.clean_Y)
-        self.Checkbutton_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=w_entry+40, height=23)
 
         D_Yloc=D_Yloc+12
 
@@ -8762,13 +8781,13 @@ class Application(Frame):
 
         self.Checkbutton_v_clean_P = Checkbutton(vcarve_settings,text="P", anchor=W)
         self.Checkbutton_v_clean_P.configure(variable=self.v_clean_P)
-        self.Checkbutton_v_clean_P.place(x=xd_entry_L, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_v_clean_P.place(x=xd_entry_L, y=D_Yloc, width=w_entry+40, height=23)
         self.Checkbutton_v_clean_X = Checkbutton(vcarve_settings,text="X", anchor=W)
         self.Checkbutton_v_clean_X.configure(variable=self.v_clean_X)
-        self.Checkbutton_v_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_v_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=w_entry+40, height=23)
         self.Checkbutton_v_clean_Y = Checkbutton(vcarve_settings,text="Y", anchor=W)
         self.Checkbutton_v_clean_Y.configure(variable=self.v_clean_Y)
-        self.Checkbutton_v_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_v_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=w_entry+40, height=23)
 
         ## V-Bit Picture ##
         self.PHOTO = PhotoImage(format='gif',data=
@@ -8798,7 +8817,7 @@ class Application(Frame):
         Xbut=int(vcarve_settings.winfo_width()/2)
 
         self.VCARVE_Recalculate = Button(vcarve_settings,text="Calculate V-Carve", command=self.VCARVE_Recalculate_Click)
-        self.VCARVE_Recalculate.place(x=Xbut, y=Ybut,  height=30, anchor="e")
+        self.VCARVE_Recalculate.place(x=Xbut, y=Ybut, width=130, height=30, anchor="e")
 
 
         if self.cut_type.get() == "v-carve":
