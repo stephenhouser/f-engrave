@@ -2287,8 +2287,14 @@ class Application(Frame):
         self.Listbox_1.bind("<Down>", self.Listbox_Key_Down)
 
         try:
-            font_files=os.listdir(self.fontdir.get())
-            font_files.sort()
+            font_files = []
+            import fnmatch
+            for r, dirnames, filenames in os.walk(self.fontdir.get()):
+                for filename in fnmatch.filter(filenames, '*.[Cc][Xx][Ff]'):
+                    font_files.append(os.path.join(r.replace(self.fontdir.get(), ""), filename))
+                for filename in fnmatch.filter(filenames, '*.[Tt][Tt][Ff]'):
+                    font_files.append(os.path.join(r.replace(self.fontdir.get(), ""), filename))
+                font_files.sort()
         except:
             font_files=" "
         for name in font_files:
