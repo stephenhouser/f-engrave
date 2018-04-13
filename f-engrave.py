@@ -256,11 +256,13 @@
                  - Fixed v-bit cleanup step over. Generated step was twice the input cleanup step.
                  - Updated icon.
                  - Added console version of application to windows distribution. For batch mode in Windows.
-    Version 1.64 - Fixed bug that created erronious lines in some circumstances during v-carving.
+    Version 1.64 - Fixed bug that created erroneous lines in some circumstances during v-carving.
                  - Mapped save function to Control-S for easier g-code saving
+    
+    Version 1.65 - Fixed bug in sort_for_v_carve that resulted in an error for certain designs.
     """
 
-version = '1.64'
+version = '1.65'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 
@@ -7612,11 +7614,12 @@ class Application(Frame):
                     
             if  xlast != "" and  ylast != "":
                 Llast = sqrt((x1-xa)*(x1-xa) + (y1-ya)*(y1-ya))
-                if Llast <= Acc and LN == temp_coords[-1][4]:
-                    temp_coords[-1][2] = xa
-                    temp_coords[-1][3] = ya
-                else:
-                    temp_coords.append([x1,y1,xa,ya,LN,0])
+                if len(temp_coords) > 1:
+                    if Llast <= Acc and LN == temp_coords[-1][4]:
+                        temp_coords[-1][2] = xa
+                        temp_coords[-1][3] = ya
+                    else:
+                        temp_coords.append([x1,y1,xa,ya,LN,0])
         return temp_coords
     ### End sort_for_v_carve
 
