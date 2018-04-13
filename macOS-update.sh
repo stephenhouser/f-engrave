@@ -35,13 +35,15 @@ do
 	fi
 done
 
-# Update version in setup script
-#osx:
-#-       g++ -o ttf2cxf_stream ttf2cxf_stream.cpp -lm -I/usr/X11/include/freetype2 -L/usr/X11/lib #-lfreetype
 
 # Apply macOS patches to f-engrave.py
 echo "Patch f-engrave for macOS..."
 patch -p0 -i macOS.patch
+
+# Update version in setup script
+echo "*** *** ***"
+echo "You need to manually update setup.py with the new version number"
+echo "*** *** ***"
 
 # Build macOS application
 echo "Build macOS Application"
