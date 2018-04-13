@@ -2,7 +2,7 @@
 """
     f-engrave G-Code Generator
     
-    Copyright (C) <2016>  <Scorch>
+    Copyright (C) <2017>  <Scorch>
     Source was used from the following works:
               engrave-11.py G-Code Generator -- Lawrence Glaister --
               GUI framework from arcbuddy.py -- John Thornton  --
@@ -248,11 +248,17 @@
 
     Version 1.61 - Fixed a bug that prevented opening DXF files that contain no features with positive Y coordinates
 
-	Version 1.62 - Fixed a bug that resulted in bad cleanup tool paths in some situations
+    Version 1.62 - Fixed a bug that resulted in bad cleanup tool paths in some situations
     
+    Version 1.63 - Removed code that loaded _imaging module.  The module is not needed
+                 - Changed "Open F-Engrave G-Code File" "Read Settings From File"
+                 - Added "Save Setting to File" file option in File menu
+                 - Fixed v-bit cleanup step over. Generated step was twice the input cleanup step.
+                 - Updated icon.
+                 - Added console version of application to windows distribution. For batch mode in Windows.
     """
 
-version = '1.62'
+version = '1.63'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 
@@ -281,18 +287,11 @@ try:
 except:
     pass
 
-
 PIL = True
 if PIL == True:
     try:
         from PIL import Image
-        from PIL import ImageTk
-        from PIL import ImageOps
-        import _imaging
     except:
-        #try:
-        #    from PIL.Image import core as _imaging # for debian jessie
-        #except:
         PIL = False
 
 
@@ -307,7 +306,7 @@ import webbrowser
 
 IN_AXIS   = "AXIS_PROGRESS_BAR" in os.environ
 
-Zero       = 0.00001  #Changed from 0.0000001 to 0.00001 V1.41
+Zero       = 0.00001
 STOP_CALC = 0
 
 #raw_input("PAUSED: Press ENTER to continue")
@@ -329,6 +328,7 @@ def fmessage(text,newline=True):
                 sys.stdout.write(text)
             except:
                 pass
+
 
 def message_box(title,message):
     if VERSION == 3:
@@ -594,13 +594,13 @@ class NURBSClass:
             DX = Pt2.x-Pt1.x
             DY = Pt2.y-Pt1.y
             cord = sqrt(DX*DX + DY*DY)
-            DXtest = Pt_test.x-(Pt1.x+Pt2.x)/2
-            DYtest = Pt_test.y-(Pt1.y+Pt2.y)/2
+            DXtest = Pt_test.x-(Pt1.x+Pt2.x)/2.0
+            DYtest = Pt_test.y-(Pt1.y+Pt2.y)/2.0
             t = sqrt(DXtest*DXtest + DYtest*DYtest)
             if (abs(t) > Zero):
-                R = (cord*cord/4 + t*t)/(2*t)
+                R = (cord*cord/4 + t*t)/(2.0*t)
             else:
-                R = 0
+                R = 0.0
 
             dx1 = (Pt_test.x - Pt1.x)
             dy1 = (Pt_test.y - Pt1.y)
@@ -611,7 +611,11 @@ class NURBSClass:
             L2 = sqrt(dx2*dx2 + dy2*dy2)
 
             if L1 > Zero and L2 > Zero and R > Zero:
-                angle = 2 * asin((cord/2)/R)
+                sin_ratio = (cord/2)/R
+                if abs(sin_ratio) > 1.0:
+                    sin_ratio = round(sin_ratio,0)
+                    sin_ratio = 0.0
+                angle = 2.0 * asin(sin_ratio)
             else:
                 angle=0.0
 
@@ -705,6 +709,8 @@ class BSplineClass:
             else:
                 low=mid
             mid=int((low+high)/2)
+            if low==high: #new
+                break     #new
         return mid
 
     #Algorithm A2.3 from "THE NURBS BOOK" pg.72
@@ -875,9 +881,9 @@ class DXF_CLASS:
         floats += list(range(10, 60))     #Double precision 3D point
         ints += list(range(60, 80))       #16-bit integer value
         ints += list(range(90,100))       #32-bit integer value
-        strings += [100]            #String (255 characters maximum; less for Unicode strings)
-        strings += [102]            #String (255 characters maximum; less for Unicode strings
-        strings += [105]            #String representing hexadecimal (hex) handle value
+        strings += [100]                  #String (255 characters maximum; less for Unicode strings)
+        strings += [102]                  #String (255 characters maximum; less for Unicode strings
+        strings += [105]                  #String representing hexadecimal (hex) handle value
         floats += list(range(140, 148))   #Double precision scalar floating-point value
         ints += list(range(170, 176))     #16-bit integer value
         ints += list(range(280, 290))     #8-bit integer value
@@ -885,11 +891,11 @@ class DXF_CLASS:
         strings += list(range(310, 320))  #String representing hex value of binary chunk
         strings += list(range(320, 330))  #String representing hex handle value
         strings += list(range(330, 369))  #String representing hex object IDs
-        strings += [999]            #Comment (string)
+        strings += [999]                  #Comment (string)
         strings += list(range(1000, 1010))#String (255 characters maximum; less for Unicode strings)
         floats += list(range(1010, 1060)) #Floating-point value
         ints += list(range(1060, 1071))   #16-bit integer value
-        ints += [1071]              #32-bit integer value
+        ints += [1071]                    #32-bit integer value
 
         self.funs = []
         for i in range(0,1072):
@@ -903,6 +909,20 @@ class DXF_CLASS:
 
         for i in ints:
             self.funs[i] = self.read_int
+
+        self.unit_vals = ["Unitless",
+                     "Inches",
+                     "Feet",
+                     "Miles",
+                     "Millimeters",
+                     "Centimeters",
+                     "Meters",
+                     "Kilometers",
+                     "Microinches",
+                     "Mils"]
+                
+        self.POLY_FLAG   = None
+        self.POLY_CLOSED = None
 
     def read_int(self,data):
         return int(float(data))
@@ -1148,6 +1168,11 @@ class DXF_CLASS:
                     self.Weights.append(1)
                 pass
 
+            kmin = min(self.Knots)
+            kmax = max(self.Knots)
+            for i in range(len(self.Knots)):
+                self.Knots[i] = (self.Knots[i]-kmin)/(kmax-kmin)
+                
             for x,y in zip(e.data["10"], e.data["20"]):
                 self.CPoints.append(PointClass(float(x), float(y)))
 
@@ -1382,10 +1407,41 @@ class DXF_CLASS:
             except:
                 rotate = 0
 
+
+            try:
+                x_block_ref = bl.blocks[key].data.get("10")
+                y_block_ref = bl.blocks[key].data.get("20")
+            except:
+                x_block_ref = 0
+                y_block_ref = 0
+
+            xoff = xoff - x_block_ref
+            yoff = yoff - y_block_ref
+            
+
             for e in bl.blocks[key].entities:
                 self.eval_entity(e,bl,tol_deg,offset=[xoff,yoff],scale=[xscale,yscale],rotate=rotate)
 
         ########### END INSERT ###########
+
+        elif e.type == "SOLID":
+            x0 = e.data["10"]
+            y0 = e.data["20"]
+            x1 = e.data["11"]
+            y1 = e.data["21"]
+            x2 = e.data["12"]
+            y2 = e.data["22"]
+            try:
+                x3 = e.data["13"]
+                y3 = e.data["23"]
+            except:
+                x3 = x2
+                y3 = y2
+            self.add_coords([x0,y0,x1,y1],offset,scale,rotate,color,layer)
+            self.add_coords([x1,y1,x3,y3],offset,scale,rotate,color,layer)
+            self.add_coords([x3,y3,x2,y2],offset,scale,rotate,color,layer)
+            self.add_coords([x2,y2,x0,y0],offset,scale,rotate,color,layer)
+            
         elif e.type == "HATCH":
             #quietly ignore HATCH
             pass
@@ -2257,7 +2313,7 @@ class Application(Frame):
         self.Label_Zsafe_ToolTip = ToolTip(self.Label_Zsafe, text= \
         'Z location that the tool will be sent to prior to any rapid moves.')
 
-        self.Label_Zcut = Label(self.master,text="Cut Depth")
+        self.Label_Zcut = Label(self.master,text="Engrave Depth")
         self.Label_Zcut_u = Label(self.master,textvariable=self.units, anchor=W)
         self.Entry_Zcut = Entry(self.master,width="15")
         self.Entry_Zcut.configure(textvariable=self.ZCUT)
@@ -2360,23 +2416,26 @@ class Application(Frame):
         self.menuBar = Menu(self.master, relief = "raised", bd=2)
 
         top_File = Menu(self.menuBar, tearoff=0)
-        top_File.add("command", label = "Open F-engrave G-Code File", \
+        top_File.add("command", label = "Save Settings to File", \
+                         command = self.menu_File_Save_Settings_File)
+        top_File.add("command", label = "Read Settings from File", \
                          command = self.menu_File_Open_G_Code_File)
-						 
+        top_File.add_separator()
         if self.POTRACE_AVAIL == TRUE:
-            top_File.add("command", label = "Open DXF/Bitmap File", \
+            top_File.add("command", label = "Open DXF/Bitmap", \
                              command = self.menu_File_Open_DXF_File)
         else:
-            top_File.add("command", label = "Open DXF File", \
+            top_File.add("command", label = "Open DXF", \
                              command = self.menu_File_Open_DXF_File)
-
-        top_File.add("command", label = "Save G-Code File", \
+        top_File.add_separator()
+        top_File.add("command", label = "Save G-Code", \
                          command = self.menu_File_Save_G_Code_File)
-        top_File.add("command", label = "Export SVG File",    \
+        top_File.add_separator()
+        top_File.add("command", label = "Export SVG",    \
                          command = self.menu_File_Save_SVG_File)
-        top_File.add("command", label = "Export DXF File",    \
+        top_File.add("command", label = "Export DXF",    \
                          command = self.menu_File_Save_DXF_File)
-        top_File.add("command", label = "Export DXF File (close loops)", \
+        top_File.add("command", label = "Export DXF (close loops)", \
                          command = self.menu_File_Save_DXF_File_close_loops)
         if IN_AXIS:
             top_File.add("command", label = "Write To Axis and Exit", \
@@ -2432,7 +2491,7 @@ class Application(Frame):
         self.menuBar.add("cascade", label="Settings", menu=top_Settings)
 
         top_Help = Menu(self.menuBar, tearoff=0)
-        top_Help.add("command", label = "About", command = self.menu_Help_About)
+        top_Help.add("command", label = "About (E-Mail)", command = self.menu_Help_About)
         top_Help.add("command", label = "Help (Web Page)", command = self.menu_Help_Web)
         self.menuBar.add("cascade", label="Help", menu=top_Help)
 
@@ -2611,7 +2670,7 @@ class Application(Frame):
         
         if (self.no_comments.get() != True) or (config_file == True):
             self.gcode.append('( Code generated by f-engrave-'+version+'.py )')
-            self.gcode.append('( by Scorch - 2016 )')
+            self.gcode.append('( by Scorch - 2017 )')
         
             self.gcode.append('(Settings used in f-engrave when this file was created)')
             if self.input_type.get() == "text":
@@ -2718,8 +2777,9 @@ class Application(Frame):
             self.gcode.append("(#########################################################)")
 
 
+        if (config_file == True):
+            return
         
-
         if self.units.get() == "in":
             dp=4
             dpfeed=2
@@ -3150,7 +3210,7 @@ class Application(Frame):
             
         if (self.no_comments.get() != True):
             self.gcode.append('( Code generated by f-engrave-'+version+'.py )')
-            self.gcode.append('( by Scorch - 2016 )')
+            self.gcode.append('( by Scorch - 2017 )')
             self.gcode.append('( This file is a secondary operation for )')
             self.gcode.append('( cleaning up a V-carve. )')
 
@@ -4408,19 +4468,15 @@ class Application(Frame):
         vcalc_status.title('Executing V-Carve')
         vcalc_status.iconname("F-Engrave")
 
-        try: #Attempt to create temporary icon bitmap file
-            f = open("f_engrave_icon",'w')
-            f.write("#define f_engrave_icon_width 16\n")
-            f.write("#define f_engrave_icon_height 16\n")
-            f.write("static unsigned char f_engrave_icon_bits[] = {\n")
-            f.write("   0x3f, 0xfc, 0x1f, 0xf8, 0xcf, 0xf3, 0x6f, 0xe4, 0x6f, 0xed, 0xcf, 0xe5,\n")
-            f.write("   0x1f, 0xf4, 0xfb, 0xf3, 0x73, 0x98, 0x47, 0xce, 0x0f, 0xe0, 0x3f, 0xf8,\n")
-            f.write("   0x7f, 0xfe, 0x3f, 0xfc, 0x9f, 0xf9, 0xcf, 0xf3 };\n")
-            f.close()
-            vcalc_status.iconbitmap("@f_engrave_icon")
-            os.remove("f_engrave_icon")
+        try:
+            vcalc_status.iconbitmap(bitmap="@emblem64")
         except:
-            fmessage("Unable to create temporary icon file.")
+            try: #Attempt to create temporary icon bitmap file
+                temp_icon("f_engrave_icon")
+                vcalc_status.iconbitmap("@f_engrave_icon")
+                os.remove("f_engrave_icon")
+            except:
+                pass
 
         self.V_Carve_It()
         self.menu_View_Refresh()
@@ -4454,20 +4510,16 @@ class Application(Frame):
             vcalc_status.title('Executing Clean Area Calculation')
             vcalc_status.iconname("F-Engrave")
 
-            try: #Attempt to create temporary icon bitmap file
-                f = open("f_engrave_icon",'w')
-                f.write("#define f_engrave_icon_width 16\n")
-                f.write("#define f_engrave_icon_height 16\n")
-                f.write("static unsigned char f_engrave_icon_bits[] = {\n")
-                f.write("   0x3f, 0xfc, 0x1f, 0xf8, 0xcf, 0xf3, 0x6f, 0xe4, 0x6f, 0xed, 0xcf, 0xe5,\n")
-                f.write("   0x1f, 0xf4, 0xfb, 0xf3, 0x73, 0x98, 0x47, 0xce, 0x0f, 0xe0, 0x3f, 0xf8,\n")
-                f.write("   0x7f, 0xfe, 0x3f, 0xfc, 0x9f, 0xf9, 0xcf, 0xf3 };\n")
-                f.close()
-                vcalc_status.iconbitmap("@f_engrave_icon")
-                os.remove("f_engrave_icon")
+            try:
+                vcalc_status.iconbitmap(bitmap="@emblem64")
             except:
-                fmessage("Unable to create temporary icon file.")
-
+                try: #Attempt to create temporary icon bitmap file
+                    temp_icon("f_engrave_icon")
+                    vcalc_status.iconbitmap("@f_engrave_icon")
+                    os.remove("f_engrave_icon")
+                except:
+                    pass
+            
             clean_cut = 1
             self.V_Carve_It(clean_cut)
             vcalc_status.grab_release()
@@ -4878,7 +4930,43 @@ class Application(Frame):
             self.NGC_FILE = filename
             self.menu_Mode_Change()
             
-        
+
+    def menu_File_Save_Settings_File(self):
+        self.WriteGCode(config_file=True)
+        init_dir = os.path.dirname(self.NGC_FILE)
+        if ( not os.path.isdir(init_dir) ):
+            init_dir = self.HOME_DIR
+
+        fileName, fileExtension = os.path.splitext(self.NGC_FILE)
+        init_file=os.path.basename(fileName)
+
+        if self.input_type.get() == "image":
+            fileName, fileExtension = os.path.splitext(self.IMAGE_FILE)
+            init_file=os.path.basename(fileName)
+        else:
+            init_file="text"
+
+        filename = asksaveasfilename(defaultextension='.txt', \
+                                     filetypes=[("Settings File","*.txt"),("All Files","*")],\
+                                     initialdir=init_dir,\
+                                     initialfile= init_file )
+
+        if filename != '' and filename != ():
+            try:
+                fout = open(filename,'w')
+            except:
+                self.statusMessage.set("Unable to open file for writing: %s" %(filename))
+                self.statusbar.configure( bg = 'red' )
+                return
+            for line in self.gcode:
+                try:
+                    fout.write(line+'\n')
+                except:
+                    fout.write('(skipping line)\n')
+            fout.close()
+            self.statusMessage.set("File Saved: %s" %(filename))
+            self.statusbar.configure( bg = 'white' )
+
 
     def menu_File_Save_G_Code_File(self):
         if (self.Check_All_Variables() > 0):
@@ -6708,9 +6796,11 @@ class Application(Frame):
         STOP_CALC=0
 
         if self.units.get() == "mm":
-            if float( self.v_step_len.get() ) <= .01:
-                fmessage("v_step_len is very small setting to default metric value of .25 mm")
-                self.v_step_len.set("0.25")
+            if float( self.v_step_len.get() ) < .01:
+                self.v_step_len.set("0.01")
+        else:
+            if float( self.v_step_len.get() ) < .0005:
+                self.v_step_len.set("0.0005")
 
         if (self.Check_All_Variables() > 0):
             return
@@ -7496,6 +7586,7 @@ class Application(Frame):
                 step = 1
             xlast = ""
             ylast = ""
+            xa,ya = ecoords[Start]
             for i in range(Start+step,End+step,step):
                 if xlast != "" and ylast != "":
                     x1 = xlast
@@ -7510,15 +7601,15 @@ class Application(Frame):
                     xlast = ""
                     ylast = ""
                 else:
-                    last_segment = [x1,y1,x2,y2,LN,0]
                     xlast = x1
                     ylast = y1
             if  xlast != "" and  ylast != "":
-                temp_coords.append(last_segment)
-
-        #for ijunk in range(len(temp_coords)):
-        #    temp_coords[ijunk][4]=0
-        #    temp_coords[ijunk][5]=0
+                Llast = sqrt((x1-xa)*(x1-xa) + (y1-ya)*(y1-ya))
+                if Llast <= Acc:
+                    temp_coords[-1][2] = xa
+                    temp_coords[-1][3] = ya
+                else:
+                    temp_coords.append([x1,y1,xa,ya,LN,0])
         return temp_coords
     ### End sort_for_v_carve
 
@@ -7759,7 +7850,7 @@ class Application(Frame):
             self.master.update()
             self.v_clean_coords_sort = []
 
-            clean_dia  = float(self.clean_v.get())*2.0  #effective diameter of clean-up v-bit
+            clean_dia  = float(self.clean_v.get())  #effective diameter of clean-up v-bit
             if float(clean_dia) < Zero:
                 return
             # The next line allows the cutter to get within 1/4 of the
@@ -8228,21 +8319,15 @@ class Application(Frame):
         self.PBM_Close = Button(pbm_settings,text="Close",command=self.Close_Current_Window_Click)
         self.PBM_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="w")
 
-
-        try: #Attempt to create temporary icon bitmap file
-            f = open("f_engrave_icon",'w')
-            f.write("#define f_engrave_icon_width 16\n")
-            f.write("#define f_engrave_icon_height 16\n")
-            f.write("static unsigned char f_engrave_icon_bits[] = {\n")
-            f.write("   0x3f, 0xfc, 0x1f, 0xf8, 0xcf, 0xf3, 0x6f, 0xe4, 0x6f, 0xed, 0xcf, 0xe5,\n")
-            f.write("   0x1f, 0xf4, 0xfb, 0xf3, 0x73, 0x98, 0x47, 0xce, 0x0f, 0xe0, 0x3f, 0xf8,\n")
-            f.write("   0x7f, 0xfe, 0x3f, 0xfc, 0x9f, 0xf9, 0xcf, 0xf3 };\n")
-            f.close()
-            pbm_settings.iconbitmap("@f_engrave_icon")
-            os.remove("f_engrave_icon")
+        try:
+            pbm_settings.iconbitmap(bitmap="@emblem64")
         except:
-            pass
-
+            try: #Attempt to create temporary icon bitmap file
+                temp_icon("f_engrave_icon")
+                pbm_settings.iconbitmap("@f_engrave_icon")
+                os.remove("f_engrave_icon")
+            except:
+                pass
 ################################################################################
 #                         General Settings Window                              #
 ################################################################################
@@ -8253,20 +8338,17 @@ class Application(Frame):
         gen_settings.title('Settings')
         gen_settings.iconname("Settings")
 
-        try: #Attempt to create temporary icon bitmap file
-            f = open("f_engrave_icon",'w')
-            f.write("#define f_engrave_icon_width 16\n")
-            f.write("#define f_engrave_icon_height 16\n")
-            f.write("static unsigned char f_engrave_icon_bits[] = {\n")
-            f.write("   0x3f, 0xfc, 0x1f, 0xf8, 0xcf, 0xf3, 0x6f, 0xe4, 0x6f, 0xed, 0xcf, 0xe5,\n")
-            f.write("   0x1f, 0xf4, 0xfb, 0xf3, 0x73, 0x98, 0x47, 0xce, 0x0f, 0xe0, 0x3f, 0xf8,\n")
-            f.write("   0x7f, 0xfe, 0x3f, 0xfc, 0x9f, 0xf9, 0xcf, 0xf3 };\n")
-            f.close()
-            gen_settings.iconbitmap("@f_engrave_icon")
-            os.remove("f_engrave_icon")
+        try:
+            gen_settings.iconbitmap(bitmap="@emblem64")
         except:
-            pass
+            try: #Attempt to create temporary icon bitmap file
+                temp_icon("f_engrave_icon")
+                gen_settings.iconbitmap("@f_engrave_icon")
+                os.remove("f_engrave_icon")
+            except:
+                pass
 
+            
         D_Yloc  = 6
         D_dY = 24
         xd_label_L = 12
@@ -8478,20 +8560,18 @@ class Application(Frame):
         vcarve_settings.title('V-Carve Settings')
         vcarve_settings.iconname("V-Carve Settings")
 
-        try: #Attempt to create temporary icon bitmap file
-            f = open("f_engrave_icon",'w')
-            f.write("#define f_engrave_icon_width 16\n")
-            f.write("#define f_engrave_icon_height 16\n")
-            f.write("static unsigned char f_engrave_icon_bits[] = {\n")
-            f.write("   0x3f, 0xfc, 0x1f, 0xf8, 0xcf, 0xf3, 0x6f, 0xe4, 0x6f, 0xed, 0xcf, 0xe5,\n")
-            f.write("   0x1f, 0xf4, 0xfb, 0xf3, 0x73, 0x98, 0x47, 0xce, 0x0f, 0xe0, 0x3f, 0xf8,\n")
-            f.write("   0x7f, 0xfe, 0x3f, 0xfc, 0x9f, 0xf9, 0xcf, 0xf3 };\n")
-            f.close()
-            vcarve_settings.iconbitmap("@f_engrave_icon")
-            os.remove("f_engrave_icon")
-        except:
-            pass
 
+        try:
+            vcarve_settings.iconbitmap(bitmap="@emblem64")
+        except:
+            try: #Attempt to create temporary icon bitmap file
+                temp_icon("f_engrave_icon")
+                vcarve_settings.iconbitmap("@f_engrave_icon")
+                os.remove("f_engrave_icon")
+            except:
+                pass
+
+            
         D_Yloc  = 12
         D_dY = 24
         xd_label_L = 12
@@ -9266,6 +9346,59 @@ def arc_fmt(plane, c1, c2, p1):
         #return "J%.4f K%.4f" % (c1-y, c2-z)
         return [c1-y, c2-z]
 
+
+
+
+def temp_icon(icon_file_name):
+    f = open(icon_file_name,'w')
+    f.write("#define f_engrave_icon_width 64\n")
+    f.write("#define f_engrave_icon_height 64\n")
+    f.write("static unsigned char f_engrave_icon_bits[] = {\n")
+    f.write("   0xff, 0xff, 0xff, 0x01, 0xc0, 0xff, 0xff, 0xff, 0xff, 0xff, 0x1f, 0x00,\n")
+    f.write("   0x00, 0xfc, 0xff, 0xff, 0xff, 0xff, 0x03, 0x00, 0x00, 0xf0, 0xff, 0xff,\n")
+    f.write("   0xff, 0xff, 0x01, 0xf0, 0x07, 0x80, 0xff, 0xff, 0xff, 0x7f, 0x00, 0xff,\n")
+    f.write("   0xff, 0x01, 0xfe, 0xff, 0xff, 0x3f, 0xe0, 0xff, 0xff, 0x0f, 0xfc, 0xff,\n")
+    f.write("   0xff, 0x0f, 0xf0, 0xff, 0xff, 0x3f, 0xf0, 0xff, 0xff, 0x07, 0xfc, 0xbf,\n")
+    f.write("   0xfc, 0x3f, 0xf0, 0xff, 0xff, 0x03, 0xff, 0x07, 0xe0, 0xff, 0xc1, 0xff,\n")
+    f.write("   0xff, 0x81, 0xff, 0x01, 0x80, 0xff, 0x83, 0xff, 0xff, 0xc0, 0xff, 0xe0,\n")
+    f.write("   0x07, 0xff, 0x07, 0xff, 0x7f, 0xf0, 0x7f, 0xfc, 0x0f, 0xfe, 0x0f, 0xff,\n")
+    f.write("   0x3f, 0xf8, 0x3f, 0xfc, 0x7f, 0xfc, 0x1f, 0xfc, 0x1f, 0xf8, 0x3f, 0x1e,\n")
+    f.write("   0x7e, 0xfc, 0x3f, 0xf8, 0x1f, 0xfc, 0x1f, 0x0f, 0xf0, 0xf8, 0x7f, 0xf0,\n")
+    f.write("   0x0f, 0xfe, 0x1f, 0xcf, 0xe1, 0xf9, 0xff, 0xe0, 0x07, 0xff, 0x9f, 0xc7,\n")
+    f.write("   0xc3, 0xf1, 0xff, 0xe0, 0x07, 0xff, 0x9f, 0xe3, 0xc7, 0xf1, 0xff, 0xe1,\n")
+    f.write("   0x87, 0xff, 0x9f, 0x07, 0xc7, 0xf3, 0xff, 0xc3, 0xc3, 0xff, 0x1f, 0x07,\n")
+    f.write("   0x8e, 0xf3, 0xff, 0xc3, 0xc3, 0xff, 0x1f, 0x0f, 0x8e, 0xf3, 0xff, 0xc7,\n")
+    f.write("   0xe1, 0xff, 0x1f, 0x9e, 0x8f, 0xf1, 0xff, 0x87, 0xe1, 0xff, 0x3f, 0xfe,\n")
+    f.write("   0xcf, 0xf1, 0xff, 0x87, 0xe0, 0xff, 0x3f, 0xfc, 0xc7, 0xf9, 0xff, 0x0f,\n")
+    f.write("   0xf0, 0xff, 0x7f, 0xf0, 0xc1, 0xff, 0xff, 0x0f, 0xf0, 0xff, 0xff, 0x00,\n")
+    f.write("   0xe0, 0xff, 0xff, 0x0f, 0xf0, 0xff, 0xff, 0x01, 0xf0, 0xff, 0xff, 0x0f,\n")
+    f.write("   0xf8, 0xff, 0xff, 0x03, 0xfc, 0xfb, 0xff, 0x1f, 0xf8, 0xff, 0xbf, 0x1f,\n")
+    f.write("   0xfe, 0xe0, 0xff, 0x1f, 0xf8, 0xff, 0x1f, 0x1e, 0x3e, 0xe0, 0xff, 0x1f,\n")
+    f.write("   0xf8, 0xff, 0x0f, 0x30, 0x06, 0xf0, 0xff, 0x1f, 0xf8, 0xff, 0x1f, 0x00,\n")
+    f.write("   0x00, 0xfc, 0xff, 0x1f, 0xf8, 0xff, 0x7f, 0x00, 0x00, 0xff, 0xff, 0x1f,\n")
+    f.write("   0xf8, 0xff, 0xff, 0x01, 0xe0, 0xff, 0xff, 0x1f, 0xf8, 0xff, 0xff, 0x0f,\n")
+    f.write("   0xf8, 0xff, 0xff, 0x1f, 0xf8, 0xff, 0xff, 0x3f, 0xfe, 0xff, 0xff, 0x1f,\n")
+    f.write("   0xf0, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xff, 0x0f, 0xf0, 0xff, 0xff, 0x3f,\n")
+    f.write("   0xfc, 0xff, 0xff, 0x8f, 0xf0, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xff, 0x8f,\n")
+    f.write("   0xe0, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xff, 0x87, 0xe1, 0xff, 0xff, 0x3f,\n")
+    f.write("   0xfc, 0xff, 0xff, 0x87, 0xc1, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xff, 0x87,\n")
+    f.write("   0xc3, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xff, 0xc3, 0xc3, 0xff, 0xff, 0x3f,\n")
+    f.write("   0xfc, 0xff, 0xff, 0xc3, 0x87, 0xff, 0xff, 0x7f, 0xfc, 0xff, 0xff, 0xe3,\n")
+    f.write("   0x87, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xff, 0xe1, 0x07, 0xff, 0xff, 0x1f,\n")
+    f.write("   0xf8, 0xff, 0xff, 0xe1, 0x0f, 0xfe, 0xff, 0x0f, 0xf0, 0xff, 0xff, 0xf0,\n")
+    f.write("   0x1f, 0xfc, 0xff, 0x07, 0xe0, 0xff, 0xff, 0xf0, 0x1f, 0xfc, 0xff, 0x83,\n")
+    f.write("   0xe1, 0xff, 0x7f, 0xf8, 0x3f, 0xf8, 0xff, 0xc1, 0xc3, 0xff, 0x1f, 0xf8,\n")
+    f.write("   0x7f, 0xf0, 0xff, 0xe0, 0x83, 0xff, 0x1f, 0xfc, 0x7f, 0xe0, 0x7f, 0xf0,\n")
+    f.write("   0x87, 0xff, 0x07, 0xfc, 0xff, 0xc0, 0x7f, 0xf8, 0x0f, 0xff, 0x07, 0xff,\n")
+    f.write("   0xff, 0x81, 0x7f, 0xfc, 0x1f, 0xfe, 0x81, 0xff, 0xff, 0x03, 0xfe, 0xfe,\n")
+    f.write("   0x1f, 0xff, 0xc1, 0xff, 0xff, 0x07, 0xf8, 0xff, 0xff, 0x3f, 0xf0, 0xff,\n")
+    f.write("   0xff, 0x0f, 0xe0, 0xff, 0xff, 0x1f, 0xf0, 0xff, 0xff, 0x3f, 0x80, 0xff,\n")
+    f.write("   0xff, 0x07, 0xfc, 0xff, 0xff, 0xff, 0x00, 0xfe, 0xff, 0x01, 0xff, 0xff,\n")
+    f.write("   0xff, 0xff, 0x03, 0xe0, 0x3f, 0x80, 0xff, 0xff, 0xff, 0xff, 0x0f, 0x00,\n")
+    f.write("   0x00, 0xf0, 0xff, 0xff, 0xff, 0xff, 0x7f, 0x00, 0x00, 0xf0, 0xff, 0xff,\n")
+    f.write("   0xff, 0xff, 0xff, 0x01, 0x00, 0xfc, 0xff, 0xff };\n")
+    f.close()
+    
 ################################################################################
 #                          Start-up Application                                #
 ################################################################################
@@ -9277,19 +9410,15 @@ app.master.minsize(780,540)
 app.f_engrave_init()
 
 
-try: #Attempt to create temporary icon bitmap file
-    f = open("f_engrave_icon",'w')
-    f.write("#define f_engrave_icon_width 16\n")
-    f.write("#define f_engrave_icon_height 16\n")
-    f.write("static unsigned char f_engrave_icon_bits[] = {\n")
-    f.write("   0x3f, 0xfc, 0x1f, 0xf8, 0xcf, 0xf3, 0x6f, 0xe4, 0x6f, 0xed, 0xcf, 0xe5,\n")
-    f.write("   0x1f, 0xf4, 0xfb, 0xf3, 0x73, 0x98, 0x47, 0xce, 0x0f, 0xe0, 0x3f, 0xf8,\n")
-    f.write("   0x7f, 0xfe, 0x3f, 0xfc, 0x9f, 0xf9, 0xcf, 0xf3 };\n")
-    f.close()
-    app.master.iconbitmap("@f_engrave_icon")
-    os.remove("f_engrave_icon")
+try:
+    app.master.iconbitmap(bitmap="@emblem64")
 except:
-    fmessage("Unable to create temporary icon file.")
+    try: #Attempt to create temporary icon bitmap file
+        temp_icon("f_engrave_icon")
+        app.master.iconbitmap(bitmap="@f_engrave_icon")
+        os.remove("f_engrave_icon")
+    except:
+        fmessage("Unable to create temporary icon file.")
 
 root.mainloop()
 

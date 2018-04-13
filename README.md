@@ -41,6 +41,45 @@ Does not include `potrace`. If `potrace` is installed in the system path or
 in `/usr/local/bin` (e.g. Homebrew) then bitmap (`PBM`) files can be read and
 utilized.
 
+## New Versions
+
+To make `f-engrave` work well on macOS there are a few minor changes to the Python source code `f-engrave.py`.
+
+* Adding `/usr/local/bin` to the environment path. I was uanble to do this properly with the application package creation process, so this is a little bit of a hack.
+
+```
++  os.environ["PATH"] += os.pathsep + "." + os.pathsep + "/usr/local/bin"
+```
+
+* Different handling of loading font files
+
+```
+-            font_files=os.listdir(self.fontdir.get())
+-            font_files.sort()
++            font_files = []
++            import fnmatch
++            for r, dirnames, filenames in os.walk(self.fontdir.get()):
++                for filename in fnmatch.filter(filenames, '*.[Cc][Xx][Ff]'):
++                    font_files.append(os.path.join(r.replace(self.fontdir.get(), ""), filename))
++                for filename in fnmatch.filter(filenames, '*.[Tt][Tt][Ff]'):
++                    font_files.append(os.path.join(r.replace(self.fontdir.get(), ""), filename))
++                font_files.sort()
+```
+
+* Adjustments to user interface elements to align properly on macOS systems. These are sprinkled throughout the user interface creation code.
+
+To help migrate to new versions the [patch](https://linux.die.net/man/1/patch) file `osx-package.diff` that can be used. To apply the patch file to a new version of `f-engrave`:
+
+```
+patch f-engrave-163.py osx-package.diff > f-engrave.py
+```
+
+To create a new patch file, when needed, which should be rarely:
+
+```
+diff -Naur f-engrave.py f-engrave-163.py > osx-package.diff
+```
+
 - - -
 The following is from [Scorchworks F-Engrave Site][fengrave]:
 

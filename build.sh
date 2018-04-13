@@ -3,6 +3,10 @@
 # This file executes the build command for the OS X Application bundle.
 # It is here because I am lazy
 # ---------------------------------------------------------------------
+
+# Clean up any previous build work
+rm -rf ./build ./dist
+
 # To compile TTF2CXF_STREAM need to have: 
 #   - XQuartz (for freetype2)
 #   - Xcode command line tools (for g++)
