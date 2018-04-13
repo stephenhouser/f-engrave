@@ -15,15 +15,18 @@ if [ ! -f ${UPDATE_DIR}/f-engrave-???.py ] ; then
 fi
 
 NEW_APP=$(ls -1 ${UPDATE_DIR}/f-engrave-???.py)
-VERSION=$(basename ${UPDATE_DIR}/f-engrave-???.py .py |cut -d- -f3)
+FILE_VERSION=$(basename ${UPDATE_DIR}/f-engrave-???.py .py |cut -d- -f3)
+VERSION=$(echo ${FILE_VERSION}|cut -c1).$(echo ${FILE_VERSION}|cut -c2-)
+
+echo "Updating to version $VERSION"
 
 # Copy f-engrave Python script
-echo "Copy new version of f-engrave"
+echo "Copy new version of f-engrave..."
 echo "    `basename ${NEW_APP}`"
 cp "${NEW_APP}" "f-engrave.py"
 
 # Copy over changed supporting files
-echo "Copy supporting files"
+echo "Copy supporting files..."
 for i in $files
 do
 	curd5=`${MD5} "${i}"`
@@ -39,12 +42,14 @@ echo "Patch f-engrave for macOS..."
 patch -p0 -i macOS.patch
 
 # Update version in setup script
-echo "*** *** ***"
-echo "You need to manually update setup.py with the new version number"
-echo "*** *** ***"
+echo "Update version number in setup script..."
+sed -i.orig "s/version = .*/version = \"${VERSION}\"/" setup.py
 
 # Build macOS application
-echo "Build macOS Application"
-#./build.sh
+echo "Build macOS Application..."
+./build.sh
 
+# Make macOS Disk Image (.dmg) for distribution
+echo "Build macOS Disk Image..."
+hdiutil create -fs HFS+ -volname F-Engrave-${VERSION} -srcfolder ./dist ./F-Engrave-${VERSION}.dmg
 
