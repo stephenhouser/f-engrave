@@ -20,7 +20,7 @@ named `f-engrave.app` that can then be distributed or moved to your Applications
 
 There are a few complications with compilation that are addressed in the `build.sh` script. 
 I've been able to compile everything on a freshly installed macOS 10.11.6 system after 
-installing the dependencies listed below. 
+installing the dependencies listed below.
 
 Specifically:
 
@@ -41,17 +41,26 @@ Does not include `potrace`. If `potrace` is installed in the system path or
 in `/usr/local/bin` (e.g. Homebrew) then bitmap (`PBM`) files can be read and
 utilized.
 
-## New Versions
+## Updating to New Versions
 
-To make `f-engrave` work well on macOS there are a few minor changes to the Python source code `f-engrave.py`. The `macOS-update.sh` script is an attempt to automate this process. It does the following (or at least tries to):
+To make `f-engrave` work well on macOS there are a few minor changes to the
+Python source code. The `macOS-update.sh` script is an attempt to automate
+the process of appying macOS specific patches. It uses a `.patch` file to do
+most of the hard work of merging the macOS specific things (below) with the
+base code.
 
-* Adding `/usr/local/bin` to the environment path. I was uanble to do this properly with the application package creation process, so this is a little bit of a hack.
+It does the following (or at least tries to):
+
+* Add `/usr/local/bin` to the environment path. I was uanble to do this
+properly with the application package creation process (`setup.py`), so this is
+a little bit of a hack. Add the followling line:
 
 ```
 +  os.environ["PATH"] += os.pathsep + "." + os.pathsep + "/usr/local/bin"
 ```
 
-* Different handling of loading font files
+* To get the font files from subdirectories loaded on macOS, I added a little
+hack to walk the font directory looking for likely font files:
 
 ```
 -            font_files=os.listdir(self.fontdir.get())
@@ -66,23 +75,24 @@ To make `f-engrave` work well on macOS there are a few minor changes to the Pyth
 +                font_files.sort()
 ```
 
-* Adjustments to user interface elements to align properly on macOS systems. These are sprinkled throughout the user interface creation code.
+* I also made several small adjustments to user interface elements. These are
+to align them better on macOS systems. These are sprinkled throughout the user
+interface creation code. Check the `.patch` file if you want the gory details.
 
+* `TTF2CXF_STREAM/Makefile` has a target added to compile it on macOS. It's
+at the end.
 
-## Making a new Patch file and using the existing one
-
-To help migrate to new versions the [patch](https://linux.die.net/man/1/patch) file `macOS.patch` that can be used. To apply the patch file to a new version of `f-engrave`:
-
-```
-cp f-engrave-163.py f-engrave.py
-patch -p0 -i macOS.patch
-```
+## macOS Package Development Notes
 
 To create a new patch file, when needed, which should be rarely:
 
 ```
 diff -Naur f-engrave.py f-engrave-163.py > macOS.patch
+diff -Naur TTF2CXF_STREAM/Makefile TTF2CXF_STREAM-163/Makefile >> macOS.patch
 ```
+
+There's something funny with line feeds in that `.patch` file so be careful
+if you edit it.
 
 - - -
 The following is from [Scorchworks F-Engrave Site][fengrave]:
