@@ -256,9 +256,11 @@
                  - Fixed v-bit cleanup step over. Generated step was twice the input cleanup step.
                  - Updated icon.
                  - Added console version of application to windows distribution. For batch mode in Windows.
+    Version 1.64 - Fixed bug that created erronious lines in some circumstances during v-carving.
+                 - Mapped save function to Control-S for easier g-code saving
     """
 
-version = '1.63'
+version = '1.64'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 
@@ -1784,6 +1786,7 @@ class Application(Frame):
         self.master.bind('<Prior>', self.KEY_ZOOM_IN) # Page Up
         self.master.bind('<Next>', self.KEY_ZOOM_OUT) # Page Down
         self.master.bind('<Control-g>', self.KEY_CTRL_G)
+        self.master.bind('<Control-s>', self.KEY_CTRL_S)
 
         self.batch      = BooleanVar()
         self.show_axis  = BooleanVar()
@@ -5212,6 +5215,9 @@ class Application(Frame):
     def KEY_CTRL_G(self, event):
         self.CopyClipboard_GCode()
 
+    def KEY_CTRL_S(self, event):
+        self.menu_File_Save_G_Code_File()
+
     def Master_Configure(self, event, update=0):
         if event.widget != self.master:
             return
@@ -7603,17 +7609,16 @@ class Application(Frame):
                 else:
                     xlast = x1
                     ylast = y1
+                    
             if  xlast != "" and  ylast != "":
                 Llast = sqrt((x1-xa)*(x1-xa) + (y1-ya)*(y1-ya))
-                if Llast <= Acc:
+                if Llast <= Acc and LN == temp_coords[-1][4]:
                     temp_coords[-1][2] = xa
                     temp_coords[-1][3] = ya
                 else:
                     temp_coords.append([x1,y1,xa,ya,LN,0])
         return temp_coords
     ### End sort_for_v_carve
-
-    
 
     def Find_Paths(self,check_coords_in,clean_dia,Radjust,clean_step,skip,direction):
         check_coords=[]

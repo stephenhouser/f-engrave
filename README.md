@@ -71,7 +71,8 @@ To make `f-engrave` work well on macOS there are a few minor changes to the Pyth
 To help migrate to new versions the [patch](https://linux.die.net/man/1/patch) file `osx-package.diff` that can be used. To apply the patch file to a new version of `f-engrave`:
 
 ```
-patch f-engrave-163.py osx-package.diff > f-engrave.py
+cp f-engrave-163.py f-engrave.py
+patch f-engrave.py osx-package.diff
 ```
 
 To create a new patch file, when needed, which should be rarely:
