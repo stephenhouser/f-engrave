@@ -43,7 +43,7 @@ utilized.
 
 ## New Versions
 
-To make `f-engrave` work well on macOS there are a few minor changes to the Python source code `f-engrave.py`.
+To make `f-engrave` work well on macOS there are a few minor changes to the Python source code `f-engrave.py`. The `macOS-update.sh` script is an attempt to automate this process. It does the following (or at least tries to):
 
 * Adding `/usr/local/bin` to the environment path. I was uanble to do this properly with the application package creation process, so this is a little bit of a hack.
 
@@ -68,17 +68,20 @@ To make `f-engrave` work well on macOS there are a few minor changes to the Pyth
 
 * Adjustments to user interface elements to align properly on macOS systems. These are sprinkled throughout the user interface creation code.
 
-To help migrate to new versions the [patch](https://linux.die.net/man/1/patch) file `osx-package.diff` that can be used. To apply the patch file to a new version of `f-engrave`:
+
+## Making a new Patch file and using the existing one
+
+To help migrate to new versions the [patch](https://linux.die.net/man/1/patch) file `macOS.patch` that can be used. To apply the patch file to a new version of `f-engrave`:
 
 ```
 cp f-engrave-163.py f-engrave.py
-patch f-engrave.py osx-package.diff
+patch -p0 -i macOS.patch
 ```
 
 To create a new patch file, when needed, which should be rarely:
 
 ```
-diff -Naur f-engrave.py f-engrave-163.py > osx-package.diff
+diff -Naur f-engrave.py f-engrave-163.py > macOS.patch
 ```
 
 - - -

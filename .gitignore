@@ -1,6 +1,10 @@
 .DS_Store
 TTF2CXF_STREAM/ttf2cxf_stream
-OSX/F-Engrave.app
+F-Engrave*.app
+build/*
+dist/*
+*.orig
+*.rej
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,4 +1,4 @@
---- f-engrave.py	2017-07-17 13:55:20.000000000 -0400
+--- archive/f-engrave-162.py	2017-07-17 13:55:20.000000000 -0400
 +++ f-engrave.py	2018-04-13 12:03:03.000000000 -0400
 @@ -1673,6 +1673,8 @@
          #    fmessage("Python Imaging Library (PIL) was not found...Bummer")
@@ -215,3 +215,12 @@
  
  
          if self.cut_type.get() == "v-carve":
+--- /Users/houser/Downloads/F-Engrave-1.64_src/TTF2CXF_STREAM/Makefile	2013-07-21 23:03:00.000000000 -0400
++++ TTF2CXF_STREAM/Makefile	2018-04-13 14:47:29.000000000 -0400
+@@ -27,4 +27,5 @@
+ 		-L$(WIN_BASEDIR)/lib                 \
+ 		$(WIN_BASEDIR)/lib/freetype.lib
+ 
+-
++osx:
++	g++ -o ttf2cxf_stream ttf2cxf_stream.cpp -lm -I/usr/X11/include/freetype2 -L/usr/X11/lib -lfreetype

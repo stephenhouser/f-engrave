@@ -10,6 +10,11 @@ files="INSTALL.txt build.bat fengrave.ico gpl-3.0.txt py2exe_setup.py \
 
 UPDATE_DIR=$1
 
+if [ ! -f ${UPDATE_DIR}/f-engrave-???.py ] ; then
+	echo "F-Engrave does not exist at \$1 = ${UPDATE_DIR}!"
+	exit
+fi
+
 NEW_APP=$(ls -1 ${UPDATE_DIR}/f-engrave-???.py)
 VERSION=$(basename ${UPDATE_DIR}/f-engrave-???.py .py |cut -d- -f3)
 
@@ -36,7 +41,7 @@ done
 
 # Apply macOS patches to f-engrave.py
 echo "Patch f-engrave for macOS..."
-#patch f-engrave.py f-engrave-macOS.diff
+patch -p0 -i macOS.patch
 
 # Build macOS application
 echo "Build macOS Application"
