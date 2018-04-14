@@ -12,9 +12,9 @@ rm -rf ./build ./dist
 #   - Xcode command line tools (for g++)
 (cd TTF2CXF_STREAM; make osx)
 
-# Use system (OSX) python and py2app, not homebrew or another.
-# Ensures things will work on other computers as expected by bundling
-# python with the app. Using the system one to ensure 
+# Use system (OSX) python and py2app. Do use not homebrew or another version. 
+# This ensures things will work on other people's computers who might not
+# have great tools like homebrew installed.
 #
 # There's a permission problem since 10.10 with the default system py2app:
 # http://stackoverflow.com/questions/33197412/py2app-operation-not-permitted
@@ -28,6 +28,7 @@ rm -rf ./build ./dist
 #   - Reboot into recovery mode
 #   - csrutil enable
 #   - Reboot and build...
+# You need to do that before this will work!
 /usr/bin/python setup.py py2app
 
 # Py2app does not copy permissions (executable) when bundling resources.
@@ -37,4 +38,5 @@ rm -rf ./build ./dist
 # http://stackoverflow.com/questions/11370012/can-executables-made-with-py2app-include-other-terminal-scripts-and-run-them/11371197#11371197
 chmod +x dist/f-engrave.app/Contents/Resources/ttf2cxf_stream
 
+# Clean up the build directory when we are done.
 rm -rf build

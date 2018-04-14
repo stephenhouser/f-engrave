@@ -3,6 +3,11 @@
 # Script to copy changed files from Scorch's updated F-Engrave
 # to staging directory for creating macOS package.
 #
+# 1. Copy over new files from directory specified on command line
+# 2. Apply macOS patches from `macOS.patch` and update version numbers
+# 3. Run the build script
+# 4. Create a disk image (.dmg) for release
+#
 MD5="md5 -q"
 files="INSTALL.txt build.bat fengrave.ico gpl-3.0.txt py2exe_setup.py \
 		TTF2CXF_STREAM/INSTALL.txt TTF2CXF_STREAM/Makefile \
