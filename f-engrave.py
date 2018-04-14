@@ -8699,7 +8699,7 @@ class Application(Frame):
         self.Label_BoxGap_u.place(x=w_label+x_radio_offset+175, y=D_Yloc, width=100, height=21)
 
         self.GEN_Reload = Button(vcarve_settings,text="Recalculate")
-        self.GEN_Reload.place(x=580-10, y=D_Yloc, width=90, height=25, anchor="ne")
+        self.GEN_Reload.place(x=580-10, y=D_Yloc, height=25, anchor="ne")
         self.GEN_Reload.bind("<ButtonRelease-1>", self.Recalculate_Click)
         
         D_Yloc=D_Yloc+D_dY+12
@@ -8806,8 +8806,8 @@ class Application(Frame):
         self.Label_clean = Label(vcarve_settings,text="Cleanup Operations")
         self.Label_clean.place(x=center_loc, y=D_Yloc, width=w_label, height=21,anchor=CENTER)
 
-        self.CLEAN_Recalculate = Button(vcarve_settings,text="Calculate\nCleanup", command=self.CLEAN_Recalculate_Click)
-        self.CLEAN_Recalculate.place(x=right_but_loc, y=D_Yloc, width=width_cb, height=height_cb*1.5, anchor="ne")
+        self.CLEAN_Recalculate = Button(vcarve_settings,text="Calculate Cleanup", command=self.CLEAN_Recalculate_Click)
+        self.CLEAN_Recalculate.place(x=right_but_loc, y=D_Yloc, height=height_cb*1.5, anchor="ne")
 
         D_Yloc=D_Yloc+D_dY
         self.Label_CLEAN_DIA = Label(vcarve_settings,text="Cleanup Cut Diameter")
@@ -8836,8 +8836,8 @@ class Application(Frame):
         self.Label_clean_P = Label(vcarve_settings,text="Cleanup Cut Directions")
         self.Label_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
 
-        self.Write_Clean = Button(vcarve_settings,text="Save Cleanup\nG-Code", command=self.Write_Clean_Click)
-        self.Write_Clean.place(x=right_but_loc, y=D_Yloc, width=width_cb, height=height_cb, anchor="e")
+        self.Write_Clean = Button(vcarve_settings,text="Save Cleanup G-Code", command=self.Write_Clean_Click)
+        self.Write_Clean.place(x=right_but_loc, y=D_Yloc, height=height_cb, anchor="e")
 
         self.Checkbutton_clean_P = Checkbutton(vcarve_settings,text="P", anchor=W)
         self.Checkbutton_clean_P.configure(variable=self.clean_P)
@@ -8866,8 +8866,8 @@ class Application(Frame):
         self.Label_v_clean_P = Label(vcarve_settings,text="V-Bit Cut Directions")
         self.Label_v_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
 
-        self.Write_V_Clean = Button(vcarve_settings,text="Save V Cleanup\nG-Code", command=self.Write_V_Clean_Click)
-        self.Write_V_Clean.place(x=right_but_loc, y=D_Yloc, width=width_cb, height=height_cb, anchor="e")
+        self.Write_V_Clean = Button(vcarve_settings,text="Save V Cleanup G-Code", command=self.Write_V_Clean_Click)
+        self.Write_V_Clean.place(x=right_but_loc, y=D_Yloc, height=height_cb, anchor="e")
 
         self.Checkbutton_v_clean_P = Checkbutton(vcarve_settings,text="P", anchor=W)
         self.Checkbutton_v_clean_P.configure(variable=self.v_clean_P)
@@ -8907,7 +8907,7 @@ class Application(Frame):
         Xbut=int(vcarve_settings.winfo_width()/2)
 
         self.VCARVE_Recalculate = Button(vcarve_settings,text="Calculate V-Carve", command=self.VCARVE_Recalculate_Click)
-        self.VCARVE_Recalculate.place(x=Xbut, y=Ybut,  height=30, anchor="e")
+        self.VCARVE_Recalculate.place(x=Xbut, y=Ybut, height=30, anchor="e")
 
 
         if self.cut_type.get() == "v-carve":
