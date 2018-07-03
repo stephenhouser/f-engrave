@@ -18,27 +18,33 @@ to run F-Engrave from a Terminal prompt.
 In the main directory run `build.sh`.  This will create a clickable OSX Application
 named `f-engrave.app` that can then be distributed or moved to your Applications folder.
 
-There are a few complications with compilation that are addressed in the `build.sh` script. 
-I've been able to compile everything on a freshly installed macOS 10.11.6 system after 
-installing the dependencies listed below.
+There are a few complications with compilation that are not addressed in the macOS `build.sh` script and need to be handled manually before compiling. These stem from the System Integrity Protection on macOS (since 10.10) and the system Python packager, `py2app`.
 
-Specifically:
+A solution that has worked for my system is documented on Stack Overflow in [py2app Operation Not Permitted](http://stackoverflow.com/questions/33197412/py2app-operation-not-permitted) and there is a detailed discusson on [Apple's Developer Forums](https://forums.developer.apple.com/thread/6987)
 
-* There are dependencies (see below)
-* `py2app` needs to be run with system restrictions changed (see `build.sh`)
-* `py2app` does not copy file permissions for resources (see `build.sh`)
+Solution:
+  1. Boot in recovery mode and open a command-line or Terminal
+  2. Run `csrutil disable`
+  3. Reboot and open a command-line or Terminal
+  4. Run `sudo chflags -R norestricted /System/Library/Frameworks/Python.framework` 
+  5. Reboot into recovery mode and open a command-line or Terminal
+  6. Run `csrutil enable`
+  7. Reboot and build...
+
+You need to do that before this will work!
+
+I've been able to compile everything on a freshly installed macOS 10.13.5 (July 2018) system after installing the dependencies listed below.
 
 ## Dependencies
 
 * `Xcode Command Line Tools` (for `g++`)
 * `XQuartz` (for `libfreetype2`)
+* `py2app` needs to be run with system restrictions changed (see above or notes in `build.sh`)
+* `py2app` does not copy file permissions for resources (see notes in `build.sh`)
 
-Includes `ttf2cxf` modified makefile for OS X with X11 in `/usr/X11` to
-allow engraving of TrueType (`ttf`) fonts. This adds the requirement for
-`XQuartz` and it's provided library `libfreetype2` installed to compile.
+The application builds and includes `ttf2cxf` (modified makefile for a macOS system with X11 in `/usr/X11`) to allow engraving of TrueType (`ttf`) fonts. This adds the requirement for `XQuartz` and it's provided library `libfreetype2` installed to compile.
 
-Does not include `potrace`. If `potrace` is installed in the system path or 
-in `/usr/local/bin` (e.g. Homebrew) then bitmap (`PBM`) files can be read and
+The application does not include `potrace`. If `potrace` is installed in the system path or in `/usr/local/bin` (e.g. Homebrew) then bitmap (`PBM`) files can be read and
 utilized.
 
 ## Updating to New Versions

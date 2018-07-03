@@ -4,6 +4,24 @@
 # It is here because I am lazy
 # ---------------------------------------------------------------------
 
+# Precheck for 'restricted' permissions on system Python. See below
+# Build will fail
+if ls -dlO /System/Library/Frameworks/Python.framework | grep 'restricted'> /dev/null
+then
+	echo -e "\033[1;31m"
+	echo "  *** *** *** *** *** *** *** *** *** *** *** *** ***"
+	echo ""
+	echo "  Your system Python has the 'restricted' flag set."
+	echo ""
+	echo "  This causes application packaging to fail."
+	echo "  Please read README.md and/or this build.sh script"
+	echo "  for details on how to resolve this problem."
+	echo ""
+	echo "  *** *** *** *** *** *** *** *** *** *** *** *** ***"
+	echo -e "\033[0m"
+	exit 1
+fi
+
 # Clean up any previous build work
 rm -rf ./build ./dist
 
