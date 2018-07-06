@@ -15,8 +15,9 @@ to run F-Engrave from a Terminal prompt.
 
 ## Compiling
 
-In the main directory run `build.sh`.  This will create a clickable OSX Application
-named `f-engrave.app` that can then be distributed or moved to your Applications folder.
+In the main directory run `build.sh`.  This will create a clickable
+OSX Application in the ./dist directory named `f-engrave.app` that can
+then be distributed or moved to your Applications folder.
 
 There are a few complications with compilation that are not addressed in the macOS `build.sh` script and need to be handled manually before compiling. These stem from the System Integrity Protection on macOS (since 10.10) and the system Python packager, `py2app`.
 
