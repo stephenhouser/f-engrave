@@ -260,9 +260,13 @@
                  - Mapped save function to Control-S for easier g-code saving
     
     Version 1.65 - Fixed bug in sort_for_v_carve that resulted in an error for certain designs.
+
+    Version 1.66 - Fixed a problem with the origin when wrapping text in some cases.
+                 - Decreased number of updates while doing computations which increases overall calculation speed.
+                 - Fixed problem that can cause the program to freeze if the saved settings contain errors.                 
     """
 
-version = '1.65'
+version = '1.66'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 
@@ -295,6 +299,7 @@ PIL = True
 if PIL == True:
     try:
         from PIL import Image
+        Image.MAX_IMAGE_PIXELS = None
     except:
         PIL = False
 
@@ -1559,7 +1564,7 @@ class DXF_CLASS:
 '''
 http://tkinter.unpythonic.net/wiki/ToolTip
 
-Michael Lange <klappnase (at) freakmail (dot) de>
+ichael Lange <klappnase (at) freakmail (dot) de>
 The ToolTip class provides a flexible tooltip widget for Tkinter; it is based on IDLE's ToolTip
 module which unfortunately seems to be broken (at least the version I saw).
 INITIALIZATION OPTIONS:
@@ -2873,7 +2878,10 @@ class Application(Frame):
                             loopa_old = loopa
                         else:
                             loop = loop + 1
-                Depth = float(self.maxcut.get())
+                try:
+                    Depth = float(self.maxcut.get())
+                except:
+                    Depth = 0.0
                 if (rough_stock > 0):
                     rough_again = True
                 if ((rough_stock > 0) and(-maxDZ < rough_stock)):
@@ -3200,7 +3208,10 @@ class Application(Frame):
         BitDia =   float(self.clean_dia.get())
 
         self.calc_depth_limit()
-        Depth = float(self.maxcut.get())
+        try:
+            Depth = float(self.maxcut.get())
+        except:
+            Depth = 0.0
         if self.inlay.get():
             Depth = Depth + float(self.allowance.get())
 
@@ -3899,7 +3910,10 @@ class Application(Frame):
         return r_inlay_top
 
     def calc_r_inlay_depth(self):
-        inlay_depth = float(self.maxcut.get())
+        try:
+            inlay_depth = float(self.maxcut.get())
+        except:
+            inlay_depth = 0.0
         return inlay_depth
 
 
@@ -6519,29 +6533,31 @@ class Application(Frame):
         miny  =  99994.0
         minx  =  99995.0
 
-        if Angle == 0.0:
-            if flip_flag:
-                miny  =  -font_line_height*YScale
-            else:
-                maxy  =  font_line_height*YScale
-                
-        elif (Angle == 90.0) or (Angle == -270.0):
-            if not mirror_flag:
-                minx  =  -font_line_height*YScale
-            else:
-                maxx  =  font_line_height*YScale
-
-        elif (Angle == 270.0) or (Angle == -90.0):
-            if not mirror_flag:
-                maxx  =   font_line_height*YScale
-            else:
-                minx  =  -font_line_height*YScale
-
-        elif (Angle == 180.0) or (Angle == -180.0):
-            if flip_flag:
-                maxy  = font_line_height*YScale
-            else:
-                miny  = -font_line_height*YScale
+##        ## Commented this section out in Version 1.66
+##        if Radius == 0.0:
+##            if Angle == 0.0:
+##                if flip_flag:
+##                    miny  =  -font_line_height*YScale
+##                else:
+##                    maxy  =  font_line_height*YScale
+##                    
+##            elif (Angle == 90.0) or (Angle == -270.0):
+##                if not mirror_flag:
+##                    minx  =  -font_line_height*YScale
+##                else:
+##                    maxx  =  font_line_height*YScale
+##
+##            elif (Angle == 270.0) or (Angle == -90.0):
+##                if not mirror_flag:
+##                    maxx  =   font_line_height*YScale
+##                else:
+##                    minx  =  -font_line_height*YScale
+##
+##            elif (Angle == 180.0) or (Angle == -180.0):
+##                if flip_flag:
+##                    maxy  = font_line_height*YScale
+##                else:
+##                    miny  = -font_line_height*YScale
 
         maxr2 =  0.0
         for line in self.coords:
@@ -6800,6 +6816,7 @@ class Application(Frame):
 
     def V_Carve_It(self,clean_flag=0,DXF_FLAG = False):
         global STOP_CALC
+        timestamp = 0
         self.master.unbind("<Configure>")
         STOP_CALC=0
 
@@ -7098,18 +7115,24 @@ class Application(Frame):
                         break
                     else:
                         calc_flag = self.clean_segment[CUR_CNT]
-                    ####################################################
-                    CUR_PCT=float(CUR_LENGTH)/TOT_LENGTH*100.0
-                    if CUR_PCT > 0.0:
-                        MIN_REMAIN =( time()-START_TIME )/60 * (100-CUR_PCT)/CUR_PCT
-                        MIN_TOTAL = 100.0/CUR_PCT * ( time()-START_TIME )/60
-                    else:
-                        MIN_REMAIN = -1
-                        MIN_TOTAL = -1
+                    
                     if (not self.batch.get()):
-                        self.statusMessage.set('%.1f %% ( %.1f Minutes Remaining | %.1f Minutes Total )' %( CUR_PCT, MIN_REMAIN, MIN_TOTAL ) )
-                        self.statusbar.configure( bg = 'yellow' )
-                        self.PreviewCanvas.update()
+                        stamp=int(3*time()) #update every 1/3 of a second
+                        if (stamp != timestamp):
+                            timestamp=stamp #interlock
+                            
+                            ####################################################
+                            CUR_PCT=float(CUR_LENGTH)/TOT_LENGTH*100.0
+                            if CUR_PCT > 0.0:
+                                MIN_REMAIN =( time()-START_TIME )/60 * (100-CUR_PCT)/CUR_PCT
+                                MIN_TOTAL = 100.0/CUR_PCT * ( time()-START_TIME )/60
+                            else:
+                                MIN_REMAIN = -1
+                                MIN_TOTAL = -1
+                                
+                            self.statusMessage.set('%.1f %% ( %.1f Minutes Remaining | %.1f Minutes Total )' %( CUR_PCT, MIN_REMAIN, MIN_TOTAL ) )
+                            self.statusbar.configure( bg = 'yellow' )
+                            self.PreviewCanvas.update()
 
                     if STOP_CALC != 0:
                         STOP_CALC=0
@@ -7512,11 +7535,19 @@ class Application(Frame):
         #####################################################
         # For each loop determine if other loops are inside #
         #####################################################
+        timestamp = 0
+        global STOP_CALC
+        STOP_CALC = 0
         for iloop in range(Nloops):
             CUR_PCT=float(iloop)/Nloops*100.0
             if (not self.batch.get()):
-                self.statusMessage.set('Determining Which Side of Loop to Cut: %d of %d' %(iloop+1,Nloops))
-                self.master.update()
+                stamp=int(3*time()) #update every 1/3 of a second
+                if (stamp != timestamp):
+                    timestamp=stamp #interlock         
+                    self.statusMessage.set('Determining Which Side of Loop to Cut: %d of %d' %(iloop+1,Nloops))
+                    self.master.update()
+                    if STOP_CALC != 0:
+                        return []
             ipoly = ecoords[Lbeg[iloop]:Lend[iloop]]
 
             ## Check points in other loops (could just check one) ##
@@ -9419,7 +9450,10 @@ app.f_engrave_init()
 
 
 try:
-    app.master.iconbitmap(bitmap="@emblem64")
+    try:
+        app.master.iconbitmap(r'emblem')
+    except:
+        app.master.iconbitmap(bitmap="@emblem64")
 except:
     try: #Attempt to create temporary icon bitmap file
         temp_icon("f_engrave_icon")

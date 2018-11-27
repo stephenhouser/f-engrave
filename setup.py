@@ -11,7 +11,7 @@ import sys
 from setuptools import setup
 
 mainscript = 'f-engrave.py'
-version = "1.65"
+version = "1.66"
 url = "https://github.com/stephenhouser/f-engrave"
 
 if sys.platform == 'darwin':

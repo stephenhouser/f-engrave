@@ -5,7 +5,8 @@ import os
 import shutil
 import py2exe
 
-script_name = "f-engrave-165.py"
+script_name = "f-engrave.py"
+icon_name   = "fengrave.ico"
 
 fileName, fileExtension = os.path.splitext(script_name)
 console_name = fileName+"_c"+fileExtension
@@ -17,7 +18,7 @@ setup(
     windows = [
     {
         "script": script_name,
-        "icon_resources":[(0,"fengrave.ico"),(0,"fengrave.ico")]
+        "icon_resources":[(0,icon_name),(0,icon_name)]
     }
   ],
  )
@@ -28,7 +29,7 @@ setup(
     console=[
         {
             "script":console_name,
-            "icon_resources":[(0,"fengrave.ico"),(0,"fengrave.ico")]
+            "icon_resources":[(0,icon_name),(0,icon_name)]
             }
     ]
 )
