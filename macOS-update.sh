@@ -14,14 +14,13 @@ files="INSTALL.txt build.bat fengrave.ico gpl-3.0.txt py2exe_setup.py \
 		TTF2CXF_STREAM/gpl-2.0.txt TTF2CXF_STREAM/ttf2cxf_stream.cpp"
 
 UPDATE_DIR=$1
-if [ ! -f ${UPDATE_DIR}/f-engrave-???.py ] ; then
+if [ ! -f ${UPDATE_DIR}/f-engrave.py ] ; then
 	echo "F-Engrave does not exist at \$1 = ${UPDATE_DIR}!"
 	exit
 fi
 
-NEW_APP=$(ls -1 ${UPDATE_DIR}/f-engrave-???.py)
-FILE_VERSION=$(basename ${UPDATE_DIR}/f-engrave-???.py .py |cut -d- -f3)
-VERSION=$(echo ${FILE_VERSION}|cut -c1).$(echo ${FILE_VERSION}|cut -c2-)
+NEW_APP=$(ls -1 ${UPDATE_DIR}/f-engrave.py)
+VERSION=$(grep "^version " ${UPDATE_DIR}/f-engrave.py | grep -Eo "[\.0-9]+")
 
 echo "Updating to version $VERSION"
 

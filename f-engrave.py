@@ -2,7 +2,7 @@
 """
     f-engrave G-Code Generator
     
-    Copyright (C) <2017>  <Scorch>
+    Copyright (C) <2011-2019>  <Scorch>
     Source was used from the following works:
               engrave-11.py G-Code Generator -- Lawrence Glaister --
               GUI framework from arcbuddy.py -- John Thornton  --
@@ -263,10 +263,16 @@
 
     Version 1.66 - Fixed a problem with the origin when wrapping text in some cases.
                  - Decreased number of updates while doing computations which increases overall calculation speed.
-                 - Fixed problem that can cause the program to freeze if the saved settings contain errors.                 
+                 - Fixed problem that can cause the program to freeze if the saved settings contain errors.
+
+
+    Version 1.67 - Improved DXF import for DXF files with some incomplete data
+                 - Fixed curve fitting upon g-code export.  Limited curve fitting angle to avoid curve fitting sharp corners. 
+
+    Version 1.68 - Fixed typo in code introduced in v1.67 that broke curve fitting.
     """
 
-version = '1.66'
+version = '1.68'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 
@@ -1096,7 +1102,15 @@ class DXF_CLASS:
         elif e.type == "LWPOLYLINE":
             flag=0
             lpcnt=-1
-            for x,y in zip(e.data["10"], e.data["20"]):
+            try:
+                xy_data = zip(e.data["10"], e.data["20"])
+            except:
+                try:
+                    xy_data = [[e.data["10"], e.data["20"]]]
+                except:
+                    fmessage("DXF Import zero length %s Ignored" %(e.type))
+                    xy_data = []
+            for x,y in xy_data:
                 x1 = x
                 y1 = y
                 lpcnt=lpcnt+1
@@ -1122,8 +1136,13 @@ class DXF_CLASS:
                     bulge0 = bulge1
 
             if (e.data["70"]!=0):
-                x1 = e.data["10"][0]
-                y1 = e.data["20"][0]
+                try:
+                    x1 = e.data["10"][0]
+                    y1 = e.data["20"][0]
+                except:
+                    x1 = e.data["10"]
+                    y1 = e.data["20"]
+
                 if bulge0 != 0:
                     bcoords = self.bulge_coords(x0,y0,x1,y1,bulge1,tol_deg)
                     for line in bcoords:
@@ -1182,9 +1201,16 @@ class DXF_CLASS:
             for i in range(len(self.Knots)):
                 self.Knots[i] = (self.Knots[i]-kmin)/(kmax-kmin)
                 
-            for x,y in zip(e.data["10"], e.data["20"]):
-                self.CPoints.append(PointClass(float(x), float(y)))
+            try:
+                xy_data = zip(e.data["10"], e.data["20"])
+            except:
+                fmessage("DXF Import zero length %s Ignored" %(e.type))
+                xy_data = []
 
+            if xy_data!=[]:
+                for x,y in xy_data:
+                    self.CPoints.append(PointClass(float(x), float(y)))
+                    
             self.MYNURBS=NURBSClass(degree=self.degree, \
                                      Knots=self.Knots,  \
                                    Weights=self.Weights,\
@@ -1311,7 +1337,14 @@ class DXF_CLASS:
         ########### LEADER ###########
         elif e.type == "LEADER":
             flag=0
-            for x,y in zip(e.data["10"], e.data["20"]):
+            
+            try:
+                xy_data = zip(e.data["10"], e.data["20"])
+            except:
+                fmessage("DXF Import zero length %s Ignored" %(e.type))
+                xy_data = []
+                
+            for x,y in xy_data:
                 x1 = x
                 y1 = y
                 if flag==0:
@@ -1322,20 +1355,38 @@ class DXF_CLASS:
                     self.add_coords([x0,y0,x1,y1],offset,scale,rotate)
                     x0=x1
                     y0=y1
-
+                    
         ########### POLYLINE ###########
         elif e.type == "POLYLINE":
             self.POLY_CLOSED =  0
             self.POLY_FLAG   = -1
             try:
                 TYPE=e.data["70"]
-                if (TYPE==0 or TYPE==8):
-                    pass
-                elif (TYPE==1):
+                if TYPE >=128:
+                    #print "#128 = The linetype pattern is generated continuously around the vertices of this polyline."
+                    TYPE=TYPE-128
+                if TYPE >=64:
+                    #print "#64 = The polyline is a polyface mesh."
+                    TYPE=TYPE-64
+                if TYPE >=32:
+                    #print "#32 = The polygon mesh is closed in the N direction."
+                    TYPE=TYPE-32
+                if TYPE >=16:
+                    #print "#16 = This is a 3D polygon mesh."
+                    TYPE=TYPE-16
+                if TYPE >=8:
+                    #print "#8 = This is a 3D polyline."
+                    TYPE=TYPE-8
+                if TYPE >=4:
+                    #print "#4 = Spline-fit vertices have been added."
+                    TYPE=TYPE-4
+                if TYPE >=2:
+                    #print "#2 = Curve-fit vertices have been added."
+                    TYPE=TYPE-2
+                if TYPE >=1:
+                    #print "#1 = This is a closed polyline (or a polygon mesh closed in the M direction)."
                     self.POLY_CLOSED=1
-                else:
-                    fmessage("DXF Import Ignored: - %s - Entity" %(e.type))
-                    self.POLY_FLAG = 0
+                    TYPE=TYPE-1
             except:
                 pass
 
@@ -1564,7 +1615,7 @@ class DXF_CLASS:
 '''
 http://tkinter.unpythonic.net/wiki/ToolTip
 
-ichael Lange <klappnase (at) freakmail (dot) de>
+Michael Lange <klappnase (at) freakmail (dot) de>
 The ToolTip class provides a flexible tooltip widget for Tkinter; it is based on IDLE's ToolTip
 module which unfortunately seems to be broken (at least the version I saw).
 INITIALIZATION OPTIONS:
@@ -2627,11 +2678,17 @@ class Application(Frame):
         configname_full = self.HOME_DIR + "/" + config_file
 
 
-        win_id=self.grab_current()
+        current_name = event.widget.winfo_parent()
+        win_id = event.widget.nametowidget(current_name)
+        
         if ( os.path.isfile(configname_full) ):
+            try:
+                win_id.withdraw()
+            except:
+                pass
+            
             if not message_ask_ok_cancel("Replace", "Replace Exiting Configuration File?\n"+configname_full):
                 try:
-                    win_id.withdraw()
                     win_id.deiconify()
                 except:
                     pass
@@ -2652,7 +2709,6 @@ class Application(Frame):
         self.statusMessage.set("Configuration File Saved: %s" %(configname_full))
         self.statusbar.configure( bg = 'white' )
         try:
-            win_id.withdraw()
             win_id.deiconify()
         except:
             pass
@@ -3843,8 +3899,9 @@ class Application(Frame):
 
     ######################
 
-    def Close_Current_Window_Click(self):
-        win_id=self.grab_current()
+    def Close_Current_Window_Click(self,event=None):
+        current_name = event.widget.winfo_parent()
+        win_id = event.widget.nametowidget(current_name)
         win_id.destroy()
 
     def Stop_Click(self, event):
@@ -8355,8 +8412,9 @@ class Application(Frame):
         self.PBM_Reload.place(x=Xbut, y=Ybut, width=130, height=30, anchor="e")
         self.PBM_Reload.bind("<ButtonRelease-1>", self.Settings_ReLoad_Click)
 
-        self.PBM_Close = Button(pbm_settings,text="Close",command=self.Close_Current_Window_Click)
+        self.PBM_Close = Button(pbm_settings,text="Close")
         self.PBM_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="w")
+        self.PBM_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
 
         try:
             pbm_settings.iconbitmap(bitmap="@emblem64")
@@ -8586,8 +8644,9 @@ class Application(Frame):
         self.GEN_Recalculate.place(x=Xbut, y=Ybut, width=130, height=30, anchor="c")
         self.GEN_Recalculate.bind("<ButtonRelease-1>", self.Settings_ReLoad_Click)
 
-        self.GEN_Close = Button(gen_settings,text="Close",command=self.Close_Current_Window_Click)
+        self.GEN_Close = Button(gen_settings,text="Close")
         self.GEN_Close.place(x=Xbut+65, y=Ybut, width=130, height=30, anchor="w")
+        self.GEN_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
 
     ################################################################################
     #                         V-Carve Settings window                              #
@@ -8946,8 +9005,9 @@ class Application(Frame):
         else:
             self.VCARVE_Recalculate.configure(state="disabled", command=None)
 
-        self.VCARVE_Close = Button(vcarve_settings,text="Close",command=vcarve_settings.destroy)
+        self.VCARVE_Close = Button(vcarve_settings,text="Close")
         self.VCARVE_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="w")
+        self.VCARVE_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
 
 ####################################
 # Gcode class for creating G-Code
@@ -9305,7 +9365,34 @@ def one_quadrant(plane, c, p1, p2, p3):
     x1, y1 = get_pts(plane, p1[0],p1[1],p1[2])
     x2, y2 = get_pts(plane, p2[0],p2[1],p2[2])
     x3, y3 = get_pts(plane, p3[0],p3[1],p3[2])
+    
+    ###########################################################
+    #Check the angle here and return false if it is too sharp
+    ###########################################################
+    La = hypot( (x1-x2), (y1-y2) )
+    Lb = hypot( (x3-x2), (y3-y2) )
 
+    cos1 = (x1-x2)/La
+    sin1 = (y1-y2)/La
+
+    cos2 = (x3-x2)/Lb
+    sin2 = (y3-y2)/Lb
+
+    theta_a = Get_Angle(sin1, cos1)
+    theta_b = Get_Angle(sin2, cos2)
+
+    if theta_a > theta_b:
+        angle = theta_a - theta_b
+    else:
+        angle = theta_b - theta_a      
+
+    test_angle = 36
+    if angle > 180+test_angle or angle < 180-test_angle:
+        #pass
+        return False
+    ###########################################################
+
+    
     def sign(x):
         if abs(x) < 1e-5: return 0
         if x < 0: return -1
@@ -9340,39 +9427,50 @@ def arc_dir(plane, c, p1, p2, p3):
     x2, y2 = get_pts(plane, p2[0],p2[1],p2[2])
     x3, y3 = get_pts(plane, p3[0],p3[1],p3[2])
 
-    #theta_start = atan2(y1-yc, x1-xc)
-    #theta_mid   = atan2(y2-yc, x2-xc)
-    #theta_end   = atan2(y3-yc, x3-xc)
 
-    theta_start = Get_Angle(y1-yc, x1-xc)
-    theta_mid   = Get_Angle(y2-yc, x2-xc) - theta_start
-    if (theta_mid < 0):
-        theta_mid = theta_mid + 360.0
-    theta_end   = Get_Angle(y3-yc, x3-xc)-theta_start
-    if (theta_end < 0):
-        theta_end = theta_end + 360.0
-
-    theta_start = 0.0   
-    if (theta_end > theta_mid):
+    ##################################################
+    signedArea = (x1 * y2 - x2 * y1) + (x2 * y3 - x3 * y2) + (x3 * y1 - x1 * y3)
+    if signedArea > 0.0:
         ccw=True
     else:
-        ccw=False    
-    # The following values result in an incorect result
-    # with the old method of determining direction
-    # x1, y1 = 0.131980576, 1.103352326
-    # x2, y2 = 0.092166910, 1.083988473
-    # x3, y3 = 0.135566569, 1.103764645
-    # xc, yc = 0.141980825, 1.032178989
+        ccw=False
     return ccw
 
-##########################################################################
-# routine takes an sin and cos and returns the angle (between 0 and 360) #
-##########################################################################
-def Get_Angle(y,x):
-    angle = 90.0-degrees(atan2(x,y))
-    if angle < 0:
-        angle = 360 + angle
-    return angle
+
+    ##############
+    #signedArea = (x2-x1)*(y2+y1) + (x3-x2)*(y3+y2) + (x1-x3)*(y1+y3)
+    #if signedArea > 0.0:
+    #    cw2=False
+    #else:
+    #    cw2=True
+    ##############
+    #R = hypot( (x1-xc), (y1-yc) )
+    #cos1 = (x1-xc)/R
+    #sin1 = (y1-yc)/R
+    #cos2 = (x2-xc)/R
+    #sin2 = (y2-yc)/R
+    #cos3 = (x3-xc)/R
+    #sin3 = (y3-yc)/R
+    #theta_start = Get_Angle(sin1, cos1)
+    #theta_mid   = Get_Angle(sin2, cos2)
+    #theta_end   = Get_Angle(sin3, cos3)
+    #if theta_mid < theta_start:
+    #    mid_angle = theta_mid - theta_start + 360.0
+    #else:
+    #    mid_angle = theta_mid - theta_start
+    #
+    #if theta_end < theta_start:
+    #    end_angle = theta_end - theta_start + 360.0
+    #else:
+    #    end_angle = theta_end - theta_start
+    # 
+    #if (end_angle > mid_angle):
+    #    cw3=True
+    #else:
+    #    cw3=False
+    
+    
+
 def arc_fmt(plane, c1, c2, p1):
     x, y, z = p1
     if plane == 17:
