@@ -327,8 +327,16 @@ STOP_CALC = 0
 # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
 # Inject system font directory and default document location
 sys.argv.extend(('--fontdir', '/Library/Fonts', '--defdir', '~/Documents'))
+
 # Used to invole ttf2cxf_stream, when in bundle on macOS
-ttf2cxf_stream = 'ttf2cxf_stream'
+def ttf2cxf_stream():
+    ttf2cxf_cmd = 'ttf2cxf_stream'
+    if getattr(sys, 'frozen', False):
+        bundle_dir = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
+        ttf2cxf_cmd = os.path.join(bundle_dir, ttf2cxf_cmd)
+
+    return ttf2cxf_cmd
+
 
 # macOS Mojave and tikinter buttons are blank
 # https://stackoverflow.com/questions/52529403/button-text-of-tkinter-not-works-in-mojave]
@@ -1822,16 +1830,7 @@ class Application(Frame):
         #    fmessage("Python Imaging Library (PIL) was not found...Bummer")
         #    fmessage("    PIL enables more image file formats.")
 
-        os.environ["PATH"] += os.pathsep + "." + os.pathsep + "/usr/local/bin"
-
-        # For PyInstaller on macOS
-        global ttf2cxf_stream
-        if getattr(sys, 'frozen', False):
-            #bundle_dir = sys._MEIPASS
-            bundle_dir = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
-            ttf2cxf_stream = os.path.join(bundle_dir, ttf2cxf_stream)
-
-        cmd = [ttf2cxf_stream,"TEST","STDOUT"]
+        cmd = [ttf2cxf_stream(),"TEST","STDOUT"]
         try:
             p = Popen(cmd, stdout=PIPE, stderr=PIPE)
             stdout, stderr = p.communicate()
@@ -5923,7 +5922,7 @@ class Application(Frame):
                 option = option + "-e"
             else:
                 option = ""
-            cmd = [ttf2cxf_stream,
+            cmd = [ttf2cxf_stream(),
                    option,
                    "-s",self.segarc.get(),
                    file_full,"STDOUT"]
