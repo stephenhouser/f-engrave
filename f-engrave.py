@@ -337,7 +337,6 @@ def ttf2cxf_stream():
 
     return ttf2cxf_cmd
 
-
 # macOS Mojave and tikinter buttons are blank
 # https://stackoverflow.com/questions/52529403/button-text-of-tkinter-not-works-in-mojave]
 # Essentially the fix is to slightly resize the window after it opens.
