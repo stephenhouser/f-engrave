@@ -48,8 +48,8 @@ then
 	# pyenv global 3.7.2
 	# pyenv rehash
 
-	# Installs Python3
-	brew install python pip
+	# Installs Python3 (which includes pip3)
+	brew install python
 	pip3 install pyinstaller
 fi
 
