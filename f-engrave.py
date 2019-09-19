@@ -324,6 +324,46 @@ IN_AXIS   = "AXIS_PROGRESS_BAR" in os.environ
 Zero       = 0.00001
 STOP_CALC = 0
 
+# macOS Patch - Stephen Houser (stephenhouser@gmail.com)
+# Inject system font directory and default document location
+sys.argv.extend(('--fontdir', '/Library/Fonts', '--defdir', '~/Documents'))
+
+# Used to invole ttf2cxf_stream, when in bundle on macOS
+def ttf2cxf_stream():
+    ttf2cxf_cmd = 'ttf2cxf_stream'
+    if getattr(sys, 'frozen', False):
+        bundle_dir = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
+        ttf2cxf_cmd = os.path.join(bundle_dir, ttf2cxf_cmd)
+
+    return ttf2cxf_cmd
+
+# macOS Mojave and tikinter buttons are blank
+# https://stackoverflow.com/questions/52529403/button-text-of-tkinter-not-works-in-mojave]
+# Essentially the fix is to slightly resize the window after it opens.
+macOS_button_fix_enabled = False
+
+def macOS_button_fix(win):
+    def make_window_resizer(w):
+        def window_resizer():
+            a = w.winfo_geometry().split('+')[0]
+            (width, height) = a.split('x')
+            w.geometry('%dx%d' % (int(width)+1, int(height)+1))
+
+        return window_resizer
+
+    # The fix causes a bit of flicker on startup, so only run it for macOS >= 10.14
+    # Check for macOS >= 10.14
+    if macOS_button_fix_enabled:
+        try:
+            import platform
+            v, _, _ = platform.mac_ver()
+            v = float('.'.join(v.split('.')[:2]))
+            if v >= 10.14:
+                win.update()
+                win.after(0, make_window_resizer(win))
+        except:
+            pass
+
 #raw_input("PAUSED: Press ENTER to continue")
 ################################################################################
 #             Function for outputting messages to different locations          #
@@ -1789,9 +1829,7 @@ class Application(Frame):
         #    fmessage("Python Imaging Library (PIL) was not found...Bummer")
         #    fmessage("    PIL enables more image file formats.")
 
-        os.environ["PATH"] += os.pathsep + "." + os.pathsep + "/usr/local/bin"
-        
-        cmd = ["ttf2cxf_stream","TEST","STDOUT"]
+        cmd = [ttf2cxf_stream(),"TEST","STDOUT"]
         try:
             p = Popen(cmd, stdout=PIPE, stderr=PIPE)
             stdout, stderr = p.communicate()
@@ -5883,7 +5921,7 @@ class Application(Frame):
                 option = option + "-e"
             else:
                 option = ""
-            cmd = ["ttf2cxf_stream",
+            cmd = [ttf2cxf_stream(),
                    option,
                    "-s",self.segarc.get(),
                    file_full,"STDOUT"]
@@ -8425,6 +8463,10 @@ class Application(Frame):
                 os.remove("f_engrave_icon")
             except:
                 pass
+
+        # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
+        macOS_button_fix(pbm_settings)
+
 ################################################################################
 #                         General Settings Window                              #
 ################################################################################
@@ -8647,6 +8689,9 @@ class Application(Frame):
         self.GEN_Close = Button(gen_settings,text="Close")
         self.GEN_Close.place(x=Xbut+65, y=Ybut, width=130, height=30, anchor="w")
         self.GEN_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
+
+        # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
+        macOS_button_fix(gen_settings)
 
     ################################################################################
     #                         V-Carve Settings window                              #
@@ -9008,6 +9053,9 @@ class Application(Frame):
         self.VCARVE_Close = Button(vcarve_settings,text="Close")
         self.VCARVE_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="w")
         self.VCARVE_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
+
+        # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
+        macOS_button_fix(vcarve_settings)
 
 ####################################
 # Gcode class for creating G-Code
@@ -9560,5 +9608,8 @@ except:
     except:
         fmessage("Unable to create temporary icon file.")
 
+# macOS Patch - Stephen Houser (stephenhouser@gmail.com)
+macOS_button_fix_enabled = True
+macOS_button_fix(root)
 root.mainloop()
 
