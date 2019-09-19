@@ -48,8 +48,8 @@ then
 	# pyenv global 3.7.2
 	# pyenv rehash
 
-	# Installs Python3 (which includes pip3)
-	brew install python
+	# Installs Python3 (which includes pip3) and freetype libraries (for ttf2cxf)
+	brew install python freetype
 	pip3 install pyinstaller
 fi
 
