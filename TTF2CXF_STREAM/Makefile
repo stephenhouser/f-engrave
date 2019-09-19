@@ -2,9 +2,22 @@
 # Makefile for TTF2CXF_STREAM
 # Date: 6/28/2013
 
-WIN_BASEDIR = freetype-2.3.5-1-lib
+ifeq ($(OS),Windows_NT)
+    TARGET=win
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+        TARGET=linux
+    endif
+    ifeq ($(UNAME_S),Darwin)
+        TARGET=osx
+    endif
+endif
 
-all: linux
+WIN_BASEDIR = freetype-2.3.5-1-lib
+MAC_FREETYPE = $(shell brew --prefix freetype)
+
+all: $(TARGET)
 
 linux:
 	g++ -o ttf2cxf_stream ttf2cxf_stream.cpp -lm -I/usr/include/freetype2 -lfreetype
@@ -28,4 +41,8 @@ win:
 		$(WIN_BASEDIR)/lib/freetype.lib
 
 osx:
-	g++ -o ttf2cxf_stream ttf2cxf_stream.cpp -lm -I/usr/X11/include/freetype2 -L/usr/X11/lib -lfreetype
+	g++ -o ttf2cxf_stream ttf2cxf_stream.cpp -lm -I$(MAC_FREETYPE)/include/freetype2 -L$(MAC_FREETYPE)/lib -lfreetype
+
+clean:
+	-@rm ttf2cxf_stream
+
