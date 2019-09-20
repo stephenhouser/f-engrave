@@ -326,7 +326,7 @@ STOP_CALC = 0
 
 # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
 # Inject system font directory and default document location
-sys.argv.extend(('--fontdir', '/Library/Fonts', '--defdir', '~/Documents'))
+sys.argv.extend(('--fontdir', '/Library/Fonts')) #,'--defdir', '~/Documents'))
 
 # Used to invole ttf2cxf_stream, when in bundle on macOS
 def ttf2cxf_stream():
