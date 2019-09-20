@@ -8,8 +8,10 @@ block_cipher = None
 
 a = Analysis(['f-engrave.py'],
              pathex=['/Users/houser/Projects/f-engrave'],
-             binaries=[('TTF2CXF_STREAM/ttf2cxf_stream', '.')],
-             datas=[],
+             binaries=[('TTF2CXF_STREAM/ttf2cxf_stream', '.'),
+                        ('/usr/local/lib/libfreetype.6.dylib', '.'),
+                        ('/usr/local/lib/libpng16.16.dylib', '.')],             
+            datas=[],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
