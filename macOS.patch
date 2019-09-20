@@ -1,5 +1,5 @@
 --- F-Engrave-1.68_src/TTF2CXF_STREAM/Makefile	2013-07-21 23:03:00.000000000 -0400
-+++ TTF2CXF_STREAM/Makefile	2019-09-19 11:31:49.000000000 -0400
++++ TTF2CXF_STREAM/Makefile	2019-09-19 17:30:06.000000000 -0400
 @@ -2,9 +2,22 @@
  # Makefile for TTF2CXF_STREAM
  # Date: 6/28/2013
@@ -35,14 +35,14 @@
 +	-@rm ttf2cxf_stream
  
 --- F-Engrave-1.68_src/f-engrave.py	2019-03-21 19:33:46.000000000 -0400
-+++ f-engrave.py	2019-09-19 11:42:33.000000000 -0400
-@@ -324,6 +324,46 @@
++++ f-engrave.py	2019-09-20 12:08:32.000000000 -0400
+@@ -324,6 +324,55 @@
  Zero       = 0.00001
  STOP_CALC = 0
  
 +# macOS Patch - Stephen Houser (stephenhouser@gmail.com)
 +# Inject system font directory and default document location
-+sys.argv.extend(('--fontdir', '/Library/Fonts', '--defdir', '~/Documents'))
++sys.argv.extend(('--fontdir', '/Library/Fonts')) #,'--defdir', '~/Documents'))
 +
 +# Used to invole ttf2cxf_stream, when in bundle on macOS
 +def ttf2cxf_stream():
@@ -52,6 +52,15 @@
 +        ttf2cxf_cmd = os.path.join(bundle_dir, ttf2cxf_cmd)
 +
 +    return ttf2cxf_cmd
++
++# Used to invole ttf2cxf_stream, when in bundle on macOS
++def potrace():
++    potrace_cmd = 'potrace'
++    if getattr(sys, 'frozen', False):
++        bundle_dir = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
++        potrace_cmd = os.path.join(bundle_dir, potrace_cmd)
++
++    return potrace_cmd
 +
 +# macOS Mojave and tikinter buttons are blank
 +# https://stackoverflow.com/questions/52529403/button-text-of-tkinter-not-works-in-mojave]
@@ -83,7 +92,7 @@
  #raw_input("PAUSED: Press ENTER to continue")
  ################################################################################
  #             Function for outputting messages to different locations          #
-@@ -1789,7 +1829,7 @@
+@@ -1789,7 +1838,7 @@
          #    fmessage("Python Imaging Library (PIL) was not found...Bummer")
          #    fmessage("    PIL enables more image file formats.")
  
@@ -92,7 +101,16 @@
          try:
              p = Popen(cmd, stdout=PIPE, stderr=PIPE)
              stdout, stderr = p.communicate()
-@@ -2402,8 +2442,14 @@
+@@ -1804,7 +1853,7 @@
+             fmessage("ttf2cxf_stream executable is not present/working...Bummer")
+             self.TTF_AVAIL = FALSE
+ 
+-        cmd = ["potrace","-v"]
++        cmd = [potrace(),"-v"]
+         try:
+             p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+             stdout, stderr = p.communicate()
+@@ -2402,8 +2451,14 @@
          self.Listbox_1.bind("<Down>", self.Listbox_Key_Down)
  
          try:
@@ -109,7 +127,7 @@
          except:
              font_files=" "
          for name in font_files:
-@@ -5321,7 +5367,7 @@
+@@ -5321,7 +5376,7 @@
                  self.Checkbutton_useIMGsize.place_forget()
  
                  # Left Column #
@@ -118,7 +136,7 @@
                  w_entry=60
                  w_units=35
  
-@@ -5475,15 +5521,15 @@
+@@ -5475,15 +5530,15 @@
                  self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
  
                  Ybut=self.h-60
@@ -137,7 +155,7 @@
                  self.Input_Label.place(x=222, y=self.h-130, width=112, height=21, anchor=W)
                  self.Input_frame.place(x=222, y=self.h-110, width=self.w-455, height=75)
  
-@@ -5496,7 +5542,7 @@
+@@ -5496,7 +5551,7 @@
                  self.Label_flip.configure(text="Flip Image")
                  self.Label_mirror.configure(text="Mirror Image")
                  # Left Column #
@@ -146,7 +164,7 @@
                  w_entry=60
                  w_units=35
  
-@@ -5642,15 +5688,15 @@
+@@ -5642,15 +5697,15 @@
                  self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
  
                  Ybut=self.h-60
@@ -165,7 +183,7 @@
                  self.Input_Label.place_forget()
                  self.Input_frame.place_forget()
  
-@@ -5875,7 +5921,7 @@
+@@ -5875,7 +5930,7 @@
                  option = option + "-e"
              else:
                  option = ""
@@ -174,7 +192,41 @@
                     option,
                     "-s",self.segarc.get(),
                     file_full,"STDOUT"]
-@@ -8417,6 +8463,10 @@
+@@ -5944,14 +5999,14 @@
+             try:
+                 #cmd = ["potrace","-b","dxf",file_full,"-o","-"]
+                 if self.bmp_longcurve.get() == 1:
+-                    cmd = ["potrace",
++                    cmd = [potrace(),
+                        "-z", self.bmp_turnpol.get(),
+                        "-t", self.bmp_turdsize.get(),
+                        "-a",self.bmp_alphamax.get(),
+                        "-O",self.bmp_opttolerance.get(),
+                        "-b","dxf",file_full,"-o","-"]
+                 else:
+-                    cmd = ["potrace",
++                    cmd = [potrace(),
+                        "-z", self.bmp_turnpol.get(),
+                        "-t", self.bmp_turdsize.get(),
+                        "-a",self.bmp_alphamax.get(),
+@@ -5982,14 +6037,14 @@
+                 
+                     #cmd = ["potrace","-b","dxf",file_full,"-o","-"]
+                     if self.bmp_longcurve.get() == 1:
+-                        cmd = ["potrace",
++                        cmd = [potrace(),
+                            "-z", self.bmp_turnpol.get(),
+                            "-t", self.bmp_turdsize.get(),
+                            "-a",self.bmp_alphamax.get(),
+                            "-O",self.bmp_opttolerance.get(),
+                            "-b","dxf",file_full_tmp,"-o","-"]
+                     else:
+-                        cmd = ["potrace",
++                        cmd = [potrace(),
+                            "-z", self.bmp_turnpol.get(),
+                            "-t", self.bmp_turdsize.get(),
+                            "-a",self.bmp_alphamax.get(),
+@@ -8417,6 +8472,10 @@
                  os.remove("f_engrave_icon")
              except:
                  pass
@@ -185,7 +237,7 @@
  ################################################################################
  #                         General Settings Window                              #
  ################################################################################
-@@ -8518,18 +8568,18 @@
+@@ -8518,18 +8577,18 @@
  
          D_Yloc=D_Yloc+D_dY
          self.Label_arcfit = Label(gen_settings,text="Arc Fitting")
@@ -211,7 +263,7 @@
          self.Radio_arcfit_center.configure(variable=self.arc_fit )
  
          D_Yloc=D_Yloc+D_dY
-@@ -8561,28 +8611,25 @@
+@@ -8561,28 +8620,25 @@
          self.Checkbutton_var_dis.configure(variable=self.var_dis)
  
          D_Yloc=D_Yloc+D_dY
@@ -247,7 +299,7 @@
  
          if self.input_type.get() != "text":
                  self.Entry_Fontdir.configure(state="disabled")
-@@ -8643,6 +8690,9 @@
+@@ -8643,6 +8699,9 @@
          self.GEN_Close.place(x=Xbut+65, y=Ybut, width=130, height=30, anchor="w")
          self.GEN_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
  
@@ -257,7 +309,7 @@
      ################################################################################
      #                         V-Carve Settings window                              #
      ################################################################################
-@@ -8679,21 +8729,18 @@
+@@ -8679,21 +8738,18 @@
          self.Label_cutter_type = Label(vcarve_settings,text="Cutter Type")
          self.Label_cutter_type.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -285,7 +337,7 @@
          self.Radio_Type_STRAIGHT.configure(variable=self.bit_shape)
  
          self.bit_shape.trace_variable("w", self.Entry_Bit_Shape_var_Callback)
-@@ -8787,7 +8834,7 @@
+@@ -8787,7 +8843,7 @@
          self.Label_BoxGap_u.place(x=w_label+x_radio_offset+175, y=D_Yloc, width=100, height=21)
  
          self.GEN_Reload = Button(vcarve_settings,text="Recalculate")
@@ -294,7 +346,7 @@
          self.GEN_Reload.bind("<ButtonRelease-1>", self.Recalculate_Click)
          
          D_Yloc=D_Yloc+D_dY+12
-@@ -8894,8 +8941,8 @@
+@@ -8894,8 +8950,8 @@
          self.Label_clean = Label(vcarve_settings,text="Cleanup Operations")
          self.Label_clean.place(x=center_loc, y=D_Yloc, width=w_label, height=21,anchor=CENTER)
  
@@ -305,7 +357,7 @@
  
          D_Yloc=D_Yloc+D_dY
          self.Label_CLEAN_DIA = Label(vcarve_settings,text="Cleanup Cut Diameter")
-@@ -8924,18 +8971,18 @@
+@@ -8924,18 +8980,18 @@
          self.Label_clean_P = Label(vcarve_settings,text="Cleanup Cut Directions")
          self.Label_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -329,7 +381,7 @@
  
          D_Yloc=D_Yloc+12
  
-@@ -8954,18 +9001,18 @@
+@@ -8954,18 +9010,18 @@
          self.Label_v_clean_P = Label(vcarve_settings,text="V-Bit Cut Directions")
          self.Label_v_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -353,7 +405,7 @@
  
          ## V-Bit Picture ##
          self.PHOTO = PhotoImage(format='gif',data=
-@@ -8995,7 +9042,7 @@
+@@ -8995,7 +9051,7 @@
          Xbut=int(vcarve_settings.winfo_width()/2)
  
          self.VCARVE_Recalculate = Button(vcarve_settings,text="Calculate V-Carve", command=self.VCARVE_Recalculate_Click)
@@ -362,7 +414,7 @@
  
  
          if self.cut_type.get() == "v-carve":
-@@ -9007,6 +9054,9 @@
+@@ -9007,6 +9063,9 @@
          self.VCARVE_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="w")
          self.VCARVE_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
  
@@ -372,7 +424,7 @@
  ####################################
  # Gcode class for creating G-Code
  ####################################
-@@ -9558,5 +9608,8 @@
+@@ -9558,5 +9617,8 @@
      except:
          fmessage("Unable to create temporary icon file.")
  
