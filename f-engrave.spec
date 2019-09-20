@@ -52,6 +52,7 @@ app = BUNDLE(coll,
             bundle_identifier=None,
 			info_plist={
 				'NSPrincipleClass': 'NSApplication',
+                'NSHighResolutionCapable': 'True',
 				'NSAppleScriptEnabled': False,
 				'CFBundleIdentifier': 'com.scorchworks.f-engrave',
 				'CFBundleName': 'F-Engrave',
