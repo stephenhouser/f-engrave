@@ -1,25 +1,25 @@
 # F-Engrave
-Packaging of Scorchworks F-Engrave as an OSX Application
+Packaging of Scorchworks F-Engrave as a macOS Application
 
-F-Engrave generates 'GCODE' for Computer Numerical Control (CNC) systems from
-text and bitmaps. It "Suppoprts Engraving and V-Carving, Uses CXF and TTF fonts,
-Imports DXF and Bitmap images".
+F-Engrave generates 'GCODE' for Computer Numerical Control (CNC) systems from text and bitmaps. It "Suppoprts Engraving and V-Carving, Uses CXF and TTF fonts, Imports DXF and Bitmap images".
 
 The official F-Engrave and instructions are at Scorchworks:
 
 >    http://www.scorchworks.com/Fengrave/fengrave.html
 
-This fork is merely to add packaging for OSX systems, creating a clickable
-'Applicaion' that can be installed on any OSX system. This eliminates having
-to run F-Engrave from a Terminal prompt.
+This fork is merely to add packaging for macOS systems, creating a clickable 'Applicaion' that can be installed on macOS systems. This eliminates having to run F-Engrave from a Terminal prompt.
 
-## Compiling
+## macOS 10.14 (Mojave)
 
-In the main directory run `build.sh`.  This will create a clickable
-OSX Application in the ./dist directory named `f-engrave.app` that can
-then be distributed or moved to your Applications folder.
+Yes, there's some gratuitious flashing of windows on macOS.
 
-There are a few complications with compilation that are not addressed in the macOS `build.sh` script and need to be handled manually before compiling. These stem from the System Integrity Protection on macOS (since 10.10) and the system Python packager, `py2app`.
+That's to fix when [buttons are blank or apparently not there](https://stackoverflow.com/questions/52529403/button-text-of-tkinter-not-works-in-mojave). What's happening is the code is slightly resizing the windows after they open.
+
+## Compiling / Building from Source
+
+In the main directory run `build_macOS.sh`. This will create a clickable macOS Application in the ./dist directory named `F-Engrave.app` that can then be distributed or moved to your Applications folder.
+
+There are a few complications with compilation that are not addressed in the macOS `build_macOS.sh` script and need to be handled manually before compiling. These stem from the System Integrity Protection on macOS (since 10.10) and the system Python packager, `py2app`.
 
 A solution that has worked for my system is documented on Stack Overflow in [py2app Operation Not Permitted](http://stackoverflow.com/questions/33197412/py2app-operation-not-permitted) and there is a detailed discusson on [Apple's Developer Forums](https://forums.developer.apple.com/thread/6987)
 
@@ -38,33 +38,24 @@ I've been able to compile everything on a freshly installed macOS 10.13.5 (July 
 
 ## Dependencies
 
-* `Xcode Command Line Tools` (for `g++`)
-* `XQuartz` (for `libfreetype2`)
-* `py2app` needs to be run with system restrictions changed (see above or notes in `build.sh`)
-* `py2app` does not copy file permissions for resources (see notes in `build.sh`)
+* `Xcode Command Line Tools` for the C/C++ compiler
+* `freetype` for interpreting fonts
+* `potrace` for interpreting bitmap files
+* `pyinstaller` for the *new* application bundle system
+* `py2app` for the *old* application bundle system. It needs to be run with system restrictions changed (see above or notes in `build_macOS.sh` for details. Also `py2app` does not copy file permissions for resources (also see notes in `build_macOS.sh`)
 
-The application builds and includes `ttf2cxf` (modified makefile for a macOS system with X11 in `/usr/X11`) to allow engraving of TrueType (`ttf`) fonts. This adds the requirement for `XQuartz` and it's provided library `libfreetype2` installed to compile.
+The application builds and includes `ttf2cxf_stream` to allow engraving of TrueType (`ttf`) fonts. This adds the requirement for `freetype` and it's provided library `libfreetype2` installed to compile. The `build_macOS.sh` script has an untested *install dev environment* section that installs this via `homebrew`.
 
-The application does not include `potrace`. If `potrace` is installed in the system path or in `/usr/local/bin` (e.g. Homebrew) then bitmap (`PBM`) files can be read and
-utilized.
+The application also uses `potrace`. Only the *new* `pyinstaller` bundling includes `potrace` as part of the application bundle. The *old* `py2app` system will require the user of F-Engrave to have `potrace` installed in their system path (e.g. Homebrew). `potrace` allows bitmap (`PBM`, `BMP`, `PNG`, etc.) files to be read and engraved or v-carved.
 
 ## Updating to New Versions
 
-To make `f-engrave` work well on macOS there are a few minor changes to the
-Python source code. The `macOS-update.sh` script is an attempt to automate
-the process of appying macOS specific patches. It uses a `.patch` file to do
-most of the hard work of merging the macOS specific things (below) with the
+To make `f-engrave` work well on macOS there are a few minor changes to Scorch's source code. The `macOS-update.sh` script is an attempt to automate the process of appying these macOS specific patches. It uses a `.patch` file to do most of the hard work of merging the macOS specific things (below) with the
 base code.
 
 It does the following (or at least tries to):
 
-* Add `/usr/local/bin` to the environment path. I was uanble to do this
-properly with the application package creation process (`setup.py`), so this is
-a little bit of a hack. Add the followling line:
-
-```
-+  os.environ["PATH"] += os.pathsep + "." + os.pathsep + "/usr/local/bin"
-```
+* Abstracts the paths to `ttf2cxf_stream` and `potrace` into functions so that the Python code can determine if it's inside an application bundle and to run those commands from therein. Or to just run them and hope they are in the `PATH` somewhere.
 
 * To get the font files from subdirectories loaded on macOS, I added a little
 hack to walk the font directory looking for likely font files:
@@ -82,24 +73,27 @@ hack to walk the font directory looking for likely font files:
 +                font_files.sort()
 ```
 
-* I also made several small adjustments to user interface elements. These are
-to align them better on macOS systems. These are sprinkled throughout the user
-interface creation code. Check the `.patch` file if you want the gory details.
+* I also made several small adjustments to user interface elements. These are to align them better on macOS systems. These are sprinkled throughout the user interface creation code. Check the `.patch` file if you want the gory details.
 
-* `TTF2CXF_STREAM/Makefile` has a target added to compile it on macOS. It's
-at the end.
+* `TTF2CXF_STREAM/Makefile` has a target added to compile it on macOS. It's at the end. There's also some `Makefile` variables set to build the proper target for the operating system that you are building on.
 
 ## macOS Package Development Notes
 
-To create a new patch file, when needed, which should be rarely:
+To create a new patch file, when needed, which should be rarely, and this is encapsulated in the `update_macOS.sh` anyhow.
 
 ```
-diff -Naur f-engrave.py f-engrave-163.py > macOS.patch
-diff -Naur TTF2CXF_STREAM/Makefile TTF2CXF_STREAM-163/Makefile >> macOS.patch
+wget https://www.scorchworks.com/Fengrave/F-Engrave-1.68_src.zip
+unzip F-Engrave-1.68_src.zip
+
+diff -Naur F-Engrave-1.68_src/TTF2CXF_STREAM/Makefile TTF2CXF_STREAM/Makefile > macOS.patch
+diff -Naur F-Engrave-1.68_src/f-engrave.py f-engrave.py >> macOS.patch
 ```
 
-There's something funny with line feeds in that `.patch` file so be careful
-if you edit it.
+There's something funny with line feeds in that `.patch` file so be careful if you edit it.
+
+## macOS Code Signing (not done)
+
+https://github.com/pyinstaller/pyinstaller/wiki/Recipe-OSX-Code-Signing
 
 - - -
 The following is from [Scorchworks F-Engrave Site][fengrave]:
