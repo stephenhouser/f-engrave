@@ -41,7 +41,7 @@ coll = COLLECT(exe,
                upx=True,
                upx_exclude=[],
                name='f-engrave')
-               
+
 app = BUNDLE(coll,
             name='F-Engrave.app',
             icon='fengrave.icns',

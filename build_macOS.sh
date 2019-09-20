@@ -9,7 +9,7 @@ VERBOSE=false
 MAKE_DISK=false
 KEEP_VENV=false
 INSTALL_TOOLS=false
-PYINSTALLER=false
+PYINSTALLER=true
 while getopts "hvdesp" OPTION; do
 	case "$OPTION" in
 		h)  echo "Options:"
@@ -17,7 +17,8 @@ while getopts "hvdesp" OPTION; do
 			echo "\t-v Verbose output"
 			echo "\t-e Keep Python virtual environment (don't delete)"
 			echo "\t-s Install development tools"
-			echo "\t-p Use pyinstaller to build application bundle"
+			echo "\t-p Use pyinstaller to build application bundle (default)"
+			echo "\t-P Use py2app to build application bundle"
 			echo "\t-d Make disk image (.dmg)"
 			exit 0
 			;;
@@ -30,6 +31,8 @@ while getopts "hvdesp" OPTION; do
 		s)  INSTALL_TOOLS=true
 			;;
 		p)  PYINSTALLER=true
+			;;
+		P)  PYINSTALLER=false
 			;;
 		*)  echo "Incorrect option provided"
 			exit 1
@@ -68,6 +71,13 @@ echo "Setup build environment..."
 if [ "$PYINSTALLER" = true ]
 then
 	echo "Using pyinstaller to build application bundle."
+
+	echo "Your system is: "
+	sw_vers
+	echo -e "\033[1;31m"
+	echo "  This build _may not work_ on older versions of macOS/OS X."
+	echo -e "\033[0m"
+
 	# Determine Python to use... prefer Python3
 	PYTHON=$(command -v python3)
 	if [ -z "${PYTHON}" ]
@@ -135,7 +145,7 @@ echo "Build macOS Application Bundle..."
 if [ "$PYINSTALLER" = true ]
 then
 	# Make the bundle with PyInstaller
-	${PYTHON} -OO -m PyInstaller --log-level=INFO -y --clean f-engrave.spec
+	${PYTHON} -OO -m PyInstaller --log-level=ERROR -y --clean f-engrave.spec
 else 
 	# Use system (OSX) python and py2app. Do use not homebrew or another version. 
 	# This ensures things will work on other people's computers who might not
