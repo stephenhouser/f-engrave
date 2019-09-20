@@ -175,7 +175,7 @@ else
 fi
 
 echo "Copy support files to dist..."
-cp README.md gpl-3.0.txt INSTALL.txt dist
+cp -rv README.md gpl-3.0.txt INSTALL.txt samples dist
 
 # Clean up the build directory when we are done.
 echo "Clean up build artifacts..."
