@@ -1,9 +1,8 @@
-# -*- mode: python -*-
-#
-# pyinstaller f-engrave.py --clean -y --windowed --onefile
+# -*- mode: python ; coding: utf-8 -*-
+
+# pyinstaller --clean -y --windowed --onedir f-engrave.py 
 # pyinstaller -y --clean f-engrave.spec
 # python -OO -m PyInstaller -y --clean f-engrave.spec
-#
 
 block_cipher = None
 
@@ -25,20 +24,25 @@ pyz = PYZ(a.pure, a.zipped_data,
 
 exe = EXE(pyz,
           a.scripts,
-          a.binaries,
-          a.zipfiles,
-          a.datas,
           [],
+          exclude_binaries=True,
           name='f-engrave',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
           upx=True,
-          runtime_tmpdir=None,
-          console=False
-		)
+          console=False )
 
-app = BUNDLE(exe,
+coll = COLLECT(exe,
+               a.binaries,
+               a.zipfiles,
+               a.datas,
+               strip=False,
+               upx=True,
+               upx_exclude=[],
+               name='f-engrave')
+               
+app = BUNDLE(coll,
             name='F-Engrave.app',
             icon='fengrave.icns',
             bundle_identifier=None,
@@ -50,4 +54,4 @@ app = BUNDLE(exe,
 				'CFBundleDisplayName': 'F-Engrave',
 				'CFBundleShortVersionString': '1.68'
 				}
-			)
+            )
