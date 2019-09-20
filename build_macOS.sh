@@ -50,7 +50,7 @@ then
 	if [ "$PYINSTALLER" = true ]
 	then
 		# Installs Python3 (which includes pip3) and freetype libraries (for ttf2cxf)
-		brew install python freetype
+		brew install python freetype potrace
 	else
 		# Install newer python environments...
 		# brew install pyenv
@@ -62,7 +62,7 @@ then
 		# pyenv global 3.7.4
 		# pyenv rehash
 
-		brew install freetype
+		brew install freetype potrace
 		easy_install pip
 	fi
 fi
