@@ -163,7 +163,7 @@ then
 		fi
 
 	rm ${VOLNAME}.dmg
-	hdiutil create -fs HFS+ -volname ${VOLNAME} -srcfolder ./dist ./F-Engrave-${VERSION}.dmg
+	hdiutil create -fs HFS+ -volname ${VOLNAME} -srcfolder ./dist ./${VOLNAME}.dmg
 fi
 
 echo "Done."

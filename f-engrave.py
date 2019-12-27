@@ -270,9 +270,13 @@
                  - Fixed curve fitting upon g-code export.  Limited curve fitting angle to avoid curve fitting sharp corners. 
 
     Version 1.68 - Fixed typo in code introduced in v1.67 that broke curve fitting.
+
+    Version 1.69 - A couple of minor fixes to keep things working in Python 3.x
+                 - Added ability to disable ploting of v-carve toolpath and area
+                 - Fixed problem causing v-carve path to go outside of design bounds for very thin design sections.  
     """
 
-version = '1.68'
+version = '1.69'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 
@@ -308,6 +312,7 @@ if PIL == True:
         Image.MAX_IMAGE_PIXELS = None
     except:
         PIL = False
+        sys.stdout.write("PIL No loaded.\n")
 
 
 from math import *
@@ -318,6 +323,12 @@ import binascii
 import getopt
 from subprocess import Popen, PIPE
 import webbrowser
+import struct
+
+try:
+    unichr
+except NameError:
+    unichr = chr
 
 IN_AXIS   = "AXIS_PROGRESS_BAR" in os.environ
 
@@ -1887,6 +1898,8 @@ class Application(Frame):
         self.batch      = BooleanVar()
         self.show_axis  = BooleanVar()
         self.show_box   = BooleanVar()
+        self.show_v_path= BooleanVar()
+        self.show_v_area= BooleanVar()
         self.show_thick = BooleanVar()
         self.flip       = BooleanVar()
         self.mirror     = BooleanVar()
@@ -1978,6 +1991,8 @@ class Application(Frame):
         self.batch.set(0)
         self.show_axis.set(1)
         self.show_box.set(1)
+        self.show_v_path.set(1)
+        self.show_v_area.set(1)
         self.show_thick.set(1)
         self.flip.set(0)
         self.mirror.set(0)
@@ -2222,7 +2237,7 @@ class Application(Frame):
         lbframe = Frame( self.master )
         self.PreviewCanvas_frame = lbframe
         self.PreviewCanvas = Canvas(lbframe, width=self.w-525, \
-                                        height=self.h-200, background="grey")
+                                        height=self.h-200, background="grey75")
         self.PreviewCanvas.pack(side=LEFT, fill=BOTH, expand=1)
         self.PreviewCanvas_frame.place(x=230, y=10)
 
@@ -2566,6 +2581,10 @@ class Application(Frame):
                                      command= self.menu_View_Refresh)
         top_View.add_checkbutton(label = "Show Bounding Box", variable=self.show_box  , \
                                      command= self.menu_View_Refresh)
+        top_View.add_checkbutton(label = "Show V-Carve ToolPath", variable=self.show_v_path  , \
+                                     command= self.menu_View_Refresh)
+        top_View.add_checkbutton(label = "Show V-Carve Area", variable=self.show_v_area  , \
+                                     command= self.menu_View_Refresh)
         self.menuBar.add("cascade", label="View", menu=top_View)
 
         top_Settings = Menu(self.menuBar, tearoff=0)
@@ -2798,6 +2817,9 @@ class Application(Frame):
             self.gcode.append('(fengrave_set useIMGsize  %s )' %( int(self.useIMGsize.get())    ))
             self.gcode.append('(fengrave_set no_comments %s )' %( int(self.no_comments.get())   ))
             self.gcode.append('(fengrave_set plotbox     %s )' %( int(self.plotbox.get())       ))
+            self.gcode.append('(fengrave_set show_v_path %s )' %( int(self.show_v_path.get())   ))
+            self.gcode.append('(fengrave_set show_v_area %s )' %( int(self.show_v_area.get())   ))
+
 
 
             # STRING.get()
@@ -2825,7 +2847,6 @@ class Application(Frame):
             self.gcode.append('(fengrave_set PLUNGE     %s )' %( self.PLUNGE.get()     ))
             self.gcode.append('(fengrave_set fontfile   \042%s\042 )' %( self.fontfile.get() ))
             self.gcode.append('(fengrave_set H_CALC     %s )' %( self.H_CALC.get()     ))
-            #self.gcode.append('(fengrave_set plotbox    %s )' %( self.plotbox.get()    ))
             self.gcode.append('(fengrave_set boxgap     %s )' %( self.boxgap.get()    ))
             self.gcode.append('(fengrave_set cut_type    %s )' %( self.cut_type.get()    ))
             self.gcode.append('(fengrave_set bit_shape   %s )' %( self.bit_shape.get() ))
@@ -2834,7 +2855,7 @@ class Application(Frame):
             self.gcode.append('(fengrave_set v_drv_crner %s )' %( self.v_drv_crner.get() ))
             self.gcode.append('(fengrave_set v_stp_crner %s )' %( self.v_stp_crner.get() ))
             self.gcode.append('(fengrave_set v_step_len  %s )' %( self.v_step_len.get()  ))
-            self.gcode.append('(fengrave_set allowance   %s )' %( self.allowance.get()       ))
+            self.gcode.append('(fengrave_set allowance   %s )' %( self.allowance.get()   ))
 
             self.gcode.append('(fengrave_set v_max_cut   %s )' %( self.v_max_cut.get()   ))
             self.gcode.append('(fengrave_set v_rough_stk %s )' %( self.v_rough_stk.get() ))
@@ -4182,6 +4203,9 @@ class Application(Frame):
     def Entry_ArcAngle_Check(self):
         try:
             value = float(self.segarc.get())
+            if  value <= 0.0:
+                self.statusMessage.set(" Arc Angle should be greater than zero.")
+                return 2 # Value is invalid number
         except:
             return 3     # Value not a number
         return 0         # Value is a valid number
@@ -4230,7 +4254,9 @@ class Application(Frame):
         win_id=self.grab_current()
         newfontdir = askdirectory(mustexist=1,initialdir=self.fontdir.get() )
         if newfontdir != "" and newfontdir != ():
-            self.fontdir.set(newfontdir.encode("utf-8"))
+            if type(newfontdir) is not str:
+                newfontdir = newfontdir.encode("utf-8")
+            self.fontdir.set(newfontdir)
         try:
             win_id.withdraw()
             win_id.deiconify()
@@ -4858,6 +4884,12 @@ class Application(Frame):
                    self.useIMGsize.set(line[line.find("useIMGsize"):].split()[1])
                 elif "no_comments"   in input_code:
                    self.no_comments.set(line[line.find("no_comments"):].split()[1])
+                elif "show_v_path"   in input_code:
+                   self.show_v_path.set(line[line.find("show_v_path"):].split()[1])
+                elif "show_v_area"   in input_code:
+                   self.show_v_area.set(line[line.find("show_v_area"):].split()[1])
+
+                
                 elif "plotbox"    in input_code:
                     if (line[line.find("plotbox"):].split()[1] == "box"):
                         self.plotbox.set(1)
@@ -5289,10 +5321,16 @@ class Application(Frame):
         self.DoIt()
 
     def menu_Help_About(self):
-        about = "F-Engrave by Scorch.\n\n"
+        about = "F-Engrave Version %s\n\n" %(version)
+        about = about + "By Scorch.\n"
         about = about + "\163\143\157\162\143\150\100\163\143\157\162"
         about = about + "\143\150\167\157\162\153\163\056\143\157\155\n"
-        about = about + "http://www.scorchworks.com/"
+        about = about + "https://www.scorchworks.com/\n\n"
+        try:
+            python_version = "%d.%d.%d" %(sys.version_info.major,sys.version_info.minor,sys.version_info.micro)
+        except:
+            python_version = ""
+        about = about + "Python "+python_version+" (%d bit)" %(struct.calcsize("P") * 8)
         message_box("About F-Engrave",about)
 
     def menu_Help_Web(self):
@@ -6172,46 +6210,49 @@ class Application(Frame):
             loop_old = -1
             r_inlay_top = self.calc_r_inlay_top()
 
-            for line in self.vcoords:
-                XY    = line
-                x1    = XY[0]
-                y1    = XY[1]
-                r     = XY[2]
-                color = "black"
+            if self.show_v_area.get():
+                for line in self.vcoords:
+                    XY    = line
+                    x1    = XY[0]
+                    y1    = XY[1]
+                    r     = XY[2]
+                    color = "black"
 
-                rbit = self.calc_vbit_dia()/2.0
-                if self.bit_shape.get() == "FLAT":
-                    if r >= rbit:
-                        self.Plot_Circ(x1,y1,midx,midy,cszw,cszh,PlotScale,color,r,1)
-                else:
-                    if self.inlay.get():
-                        self.Plot_Circ(x1,y1,midx,midy,cszw,cszh,PlotScale,color,r-r_inlay_top,1)
+                    rbit = self.calc_vbit_dia()/2.0
+                    if self.bit_shape.get() == "FLAT":
+                        if r >= rbit:
+                            self.Plot_Circ(x1,y1,midx,midy,cszw,cszh,PlotScale,color,r,1)
                     else:
-                        self.Plot_Circ(x1,y1,midx,midy,cszw,cszh,PlotScale,color,r,1)
+                        if self.inlay.get():
+                            self.Plot_Circ(x1,y1,midx,midy,cszw,cszh,PlotScale,color,r-r_inlay_top,1)
+                        else:
+                            self.Plot_Circ(x1,y1,midx,midy,cszw,cszh,PlotScale,color,r,1)
 
             loop_old = -1
             rold     = -1
-            for line in self.vcoords:
-                XY    = line
-                x1    = XY[0]
-                y1    = XY[1]
-                r     = XY[2]
-                loop  = XY[3]
-                color = "white"
-                # check and see if we need to move to a new discontinuous start point
-                plot_flat = False
-                if self.bit_shape.get() == "FLAT":
-                    if (r == rold) and (r >= rbit):
+            
+            if self.show_v_path.get():
+                for line in self.vcoords:
+                    XY    = line
+                    x1    = XY[0]
+                    y1    = XY[1]
+                    r     = XY[2]
+                    loop  = XY[3]
+                    color = "white"
+                    # check and see if we need to move to a new discontinuous start point
+                    plot_flat = False
+                    if self.bit_shape.get() == "FLAT":
+                        if (r == rold) and (r >= rbit):
+                            plot_flat = True
+                    else:
                         plot_flat = True
-                else:
-                    plot_flat = True
 
-                if (loop == loop_old) and plot_flat:
-                    self.Plot_Line(xold, yold, x1, y1, midx,midy,cszw,cszh,PlotScale,color)
-                loop_old = loop
-                rold=r
-                xold=x1
-                yold=y1
+                    if (loop == loop_old) and plot_flat:
+                        self.Plot_Line(xold, yold, x1, y1, midx,midy,cszw,cszh,PlotScale,color)
+                    loop_old = loop
+                    rold=r
+                    xold=x1
+                    yold=y1
 
         ########################################
         # Plot cleanup data
@@ -7182,7 +7223,6 @@ class Application(Frame):
                 if clean_flag == 1:
                     if self.clean_segment[CUR_CNT] != 0:
                         TOT_LENGTH = TOT_LENGTH + LENGTH
-                        #TOT_LENGTH = TOT_LENGTH + LENGTH
                 else:
                     TOT_LENGTH = TOT_LENGTH + LENGTH
 
@@ -7361,9 +7401,9 @@ class Application(Frame):
                             routa = rout
 
                     #################################################
-                    # Check to see if we need to close an open loop
+                    # Check to see if we need to close an open loop #
                     #################################################
-                    if (abs(x2-xa) < Acc and abs(y2-ya) < Acc):
+                    if (abs(x2-xa) < Zero and abs(y2-ya) < Zero):
                         xtmp1 = (xb-xa) * seg_cos0 - (yb-ya) * seg_sin0
                         ytmp1 = (xb-xa) * seg_sin0 + (yb-ya) * seg_cos0
                         Ltmp=sqrt( xtmp1*xtmp1 + ytmp1*ytmp1 )
@@ -7460,6 +7500,27 @@ class Application(Frame):
                 ecoords.append([x2,y2])
                 oldx, oldy = x2, y2
         Lend.append(cnt)
+
+
+        #################################
+        ###   Eliminate Tiny Features ###
+        #################################
+        for k in range(len(Lbeg)):
+            Start = Lbeg[k]
+            End   = Lend[k]
+            step = 1
+            [x1,y1]   = ecoords[Start+0]
+            for i in range(Start+1,End+step,step):
+                [x2,y2]   = ecoords[i]
+                Lseg = sqrt((x2-x1)**2 + (y2-y1)**2)
+                if Lseg >= Acc:
+                    x1=float(x2)
+                    y1=float(y2)
+                elif i!= End:
+                    ecoords[i]=[float(x1),float(y1)]
+                else:
+                    [x1,y1]   = ecoords[Start]
+                    ecoords[End]  =[float(x1),float(y1)]
 
         ####################
         if (not self.batch.get()):
@@ -7730,7 +7791,7 @@ class Application(Frame):
                 [x2,y2] = ecoords[i]
 
                 Lseg = sqrt((x2-x1)**2 + (y2-y1)**2)
-                if Lseg >= Acc:
+                if Lseg >= Zero:
                     temp_coords.append([x1,y1,x2,y2,LN,0])
                     xlast = ""
                     ylast = ""
@@ -7746,6 +7807,22 @@ class Application(Frame):
                         temp_coords[-1][3] = ya
                     else:
                         temp_coords.append([x1,y1,xa,ya,LN,0])
+
+        #####################################################################################
+        cnt=1
+        loop_last=temp_coords[len(temp_coords)-1][4]
+        for i in range(len(temp_coords)-2,-1,-1):
+            loop=temp_coords[i][4]
+            if loop == loop_last:
+                cnt=cnt+1
+            else:
+                if cnt<3:
+                    idel=i+1
+                    while idel < len(temp_coords) and temp_coords[idel][4]==loop_last:
+                        temp_coords.pop(idel)
+                cnt=1
+                loop_last=loop                
+        #####################################################################################
         return temp_coords
     ### End sort_for_v_carve
 
@@ -9592,8 +9669,6 @@ app = Application(root)
 app.master.title("F-Engrave V"+version)
 app.master.iconname("F-Engrave")
 app.master.minsize(780,540)
-app.f_engrave_init()
-
 
 try:
     try:
@@ -9607,6 +9682,8 @@ except:
         os.remove("f_engrave_icon")
     except:
         fmessage("Unable to create temporary icon file.")
+
+app.f_engrave_init()
 
 # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
 macOS_button_fix_enabled = True
