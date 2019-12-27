@@ -9,14 +9,14 @@ VERBOSE=false
 MAKE_DISK=false
 KEEP_VENV=false
 SETUP_ENVIRONMENT=false
-PYINSTALLER=false
+PYINSTALLER=true
 while getopts "hvdesp" OPTION; do
 	case "$OPTION" in
 		h)  echo "Options:"
 			echo "\t-h Print help (this)"
 			echo "\t-v Verbose output"
 			echo "\t-e Keep Python virtual environment (don't delete)"
-			echo "\t-p Use PyInstaller to build instead of py2app"
+			echo "\t-p Use py2app to build instead of pyinstaller"
 			echo "\t-s Setup dev environment"
 			echo "\t-d Make disk image (.dmg)"
 			exit 0
@@ -27,7 +27,7 @@ while getopts "hvdesp" OPTION; do
 			;;
 		e)  KEEP_VENV=true
 			;;
-		p)	PYINSTALLER=true
+		p)	PYINSTALLER=false
 			;;
 		s)  SETUP_ENVIRONMENT=true
 			;;
