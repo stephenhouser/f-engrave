@@ -273,10 +273,11 @@
 
     Version 1.69 - A couple of minor fixes to keep things working in Python 3.x
                  - Added ability to disable ploting of v-carve toolpath and area
-                 - Fixed problem causing v-carve path to go outside of design bounds for very thin design sections.  
+                 - Fixed problem causing v-carve path to go outside of design bounds for very thin design sections.
+    Version 1.70 - Fixed a bug introduced in V1.69 that caused v-carving cleanup calculations to fail sometimes.
     """
 
-version = '1.69'
+version = '1.70'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 
@@ -7810,18 +7811,19 @@ class Application(Frame):
 
         #####################################################################################
         cnt=1
-        loop_last=temp_coords[len(temp_coords)-1][4]
-        for i in range(len(temp_coords)-2,-1,-1):
-            loop=temp_coords[i][4]
-            if loop == loop_last:
-                cnt=cnt+1
-            else:
-                if cnt<3:
-                    idel=i+1
-                    while idel < len(temp_coords) and temp_coords[idel][4]==loop_last:
-                        temp_coords.pop(idel)
-                cnt=1
-                loop_last=loop                
+        if temp_coords!=[]:
+            loop_last=temp_coords[len(temp_coords)-1][4]
+            for i in range(len(temp_coords)-2,-1,-1):
+                loop=temp_coords[i][4]
+                if loop == loop_last:
+                    cnt=cnt+1
+                else:
+                    if cnt<3:
+                        idel=i+1
+                        while idel < len(temp_coords) and temp_coords[idel][4]==loop_last:
+                            temp_coords.pop(idel)
+                    cnt=1
+                    loop_last=loop                
         #####################################################################################
         return temp_coords
     ### End sort_for_v_carve
