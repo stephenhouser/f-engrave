@@ -92,22 +92,13 @@ echo "Updating to version $VERSION"
 
 # Copy over changed supporting files
 echo "Copy updated files from ${UPDATE_DIR}..."
-for i in ${UPDATE_DIR}/*
-do
-	fn=`basename ${i}`
-	if [ -f "$fn" ]
-	then
-		curd5=`${MD5} "${fn}"`
-		newd5=`${MD5} "${UPDATE_DIR}/${fn}"`
-		if [ "$curd5" != "$newd5" ]; then
-			echo "*   $fn"
-			cp "${UPDATE_DIR}/${fn}" "$fn"
-		fi
-	else
-		echo "+   $fn"
-		cp "${UPDATE_DIR}/${fn}" "$fn"
-	fi
-done
+# rsync 
+# -a archive mode
+# -v verbose
+# -h human readable sizes
+# -i show all file comparison information
+# -c use checksum comparison
+rsync -avhi --checksum ${UPDATE_DIR}/ .
 
 # Apply macOS patches to f-engrave.py
 echo "Patch f-engrave for macOS..."
