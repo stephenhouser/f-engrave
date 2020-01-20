@@ -157,9 +157,9 @@ then
 	echo "Build macOS Disk Image..."
 	if [ "$PYINSTALLER" = true ]
 		then
-			VOLNAME=F-Engrave-${VERSION}-pyinstaller
-		else 
 			VOLNAME=F-Engrave-${VERSION}
+		else 
+			VOLNAME=F-Engrave-${VERSION}-py2app
 		fi
 
 	rm ${VOLNAME}.dmg

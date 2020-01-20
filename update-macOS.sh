@@ -105,8 +105,9 @@ echo "Patch f-engrave for macOS..."
 patch -p0 -i macOS.patch
 
 # Update version in setup script
-echo "Update version number in setup script..."
+echo "Update version number in setup scripts..."
 sed -i.orig "s/version = .*/version = \"${VERSION}\"/" setup.py
+sed -i.orig "s/'CFBundleShortVersionString': '.*'/'CFBundleShortVersionString': '${VERSION}'/" f-engrave.spec
 
 # Build macOS application
 echo "Build macOS Application..."
