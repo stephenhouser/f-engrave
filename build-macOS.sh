@@ -48,9 +48,10 @@ then
 	eval "$(pyenv init -)"
 
 	#PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install 3.7.2
-	PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 3.7.5
-	pyenv local 3.7.5
+	PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 3.8.2
+	pyenv local 3.8.2
 	pyenv rehash
+	pip install --upgrade pip
 
 	# Installs Python3 (which includes pip3) and freetype libraries (for ttf2cxf)
 	brew install freetype

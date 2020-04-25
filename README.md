@@ -13,6 +13,12 @@ This fork is merely to add packaging for OSX systems, creating a clickable
 'Applicaion' that can be installed on any OSX system. This eliminates having
 to run F-Engrave from a Terminal prompt.
 
+This version has been built with:
+
+* Python v3.7.6
+* potrace v1.16
+* PyInstaller v3.4
+
 ## Compiling
 
 In the main directory run `build.sh`.  This will create a clickable

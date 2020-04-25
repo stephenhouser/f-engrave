@@ -353,6 +353,14 @@ def ttf2cxf_stream():
 
     return ttf2cxf_cmd
 
+def potrace():
+    potrace_cmd = 'potrace'
+    if getattr(sys, 'frozen', False):
+        bundle_dir = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
+        potrace_cmd = os.path.join(bundle_dir, potrace_cmd)
+
+    return potrace_cmd
+
 # macOS Mojave and tikinter buttons are blank
 # https://stackoverflow.com/questions/52529403/button-text-of-tkinter-not-works-in-mojave]
 # Essentially the fix is to slightly resize the window after it opens.
@@ -1860,7 +1868,7 @@ class Application(Frame):
             fmessage("ttf2cxf_stream executable is not present/working...Bummer")
             self.TTF_AVAIL = FALSE
 
-        cmd = ["potrace","-v"]
+        cmd = [potrace(),"-v"]
         try:
             p = Popen(cmd, stdout=PIPE, stderr=PIPE)
             stdout, stderr = p.communicate()
@@ -6033,14 +6041,14 @@ class Application(Frame):
             try:
                 #cmd = ["potrace","-b","dxf",file_full,"-o","-"]
                 if self.bmp_longcurve.get() == 1:
-                    cmd = ["potrace",
+                    cmd = [potrace(),
                        "-z", self.bmp_turnpol.get(),
                        "-t", self.bmp_turdsize.get(),
                        "-a",self.bmp_alphamax.get(),
                        "-O",self.bmp_opttolerance.get(),
                        "-b","dxf",file_full,"-o","-"]
                 else:
-                    cmd = ["potrace",
+                    cmd = [potrace(),
                        "-z", self.bmp_turnpol.get(),
                        "-t", self.bmp_turdsize.get(),
                        "-a",self.bmp_alphamax.get(),
@@ -6071,14 +6079,14 @@ class Application(Frame):
                 
                     #cmd = ["potrace","-b","dxf",file_full,"-o","-"]
                     if self.bmp_longcurve.get() == 1:
-                        cmd = ["potrace",
+                        cmd = [potrace(),
                            "-z", self.bmp_turnpol.get(),
                            "-t", self.bmp_turdsize.get(),
                            "-a",self.bmp_alphamax.get(),
                            "-O",self.bmp_opttolerance.get(),
                            "-b","dxf",file_full_tmp,"-o","-"]
                     else:
-                        cmd = ["potrace",
+                        cmd = [potrace(),
                            "-z", self.bmp_turnpol.get(),
                            "-t", self.bmp_turdsize.get(),
                            "-a",self.bmp_alphamax.get(),

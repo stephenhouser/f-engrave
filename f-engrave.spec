@@ -9,7 +9,7 @@ block_cipher = None
 
 a = Analysis(['f-engrave.py'],
              pathex=['/Users/houser/Projects/f-engrave'],
-             binaries=[('TTF2CXF_STREAM/ttf2cxf_stream', '.')],
+             binaries=[('TTF2CXF_STREAM/ttf2cxf_stream', '.'), ('/usr/local/bin/potrace', '.'), ('/usr/local/lib/libpotrace*.dylib', '.')],
              datas=[],
              hiddenimports=[],
              hookspath=[],
