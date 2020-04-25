@@ -60,9 +60,9 @@ directory run `build-macOS.sh`.  This will create a clickable OS X/macOS
 Application in the ./dist directory named `f-engrave.app` that can then be 
 run or moved to your Applications folder.
 
-To **update** the code to a new version of `f-engrave` from [http://www.scorchworks.com/Fengrave/fengrave.html][Scorchworks], which is my typical workflow. **NOTE** I do this on **OSX 10.10 Yosemite** machine to make sure the compiled application can run on versions >= 10.10. 
+To **update** the code to a new version of `f-engrave` from [http://www.scorchworks.com/Fengrave/fengrave.html][fengrave], which is my typical workflow. **NOTE** I do this on **OSX 10.10 Yosemite** machine to make sure the compiled application can run on versions >= 10.10. 
 
-1. Get the latest source link from [http://www.scorchworks.com/Fengrave/fengrave.html][Scorchworks]
+1. Get the latest source link from [http://www.scorchworks.com/Fengrave/fengrave.html][fengrave]
 2. `brew update` and `brew upgrade` to make sure my Homebrew is as up-to-date as it can be on an old OS.
 3. `./update-macOS.sh -u "SOURCE-LINK"`. This creates a `.dmg` image file tagged with the version number.
 4. Check everything seems to work, launch from the disk image, check that fonts are loaded, then check `.bmp` loading of the JellyBean file (tests `potrace`).
