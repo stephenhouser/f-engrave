@@ -275,9 +275,13 @@
                  - Added ability to disable ploting of v-carve toolpath and area
                  - Fixed problem causing v-carve path to go outside of design bounds for very thin design sections.
     Version 1.70 - Fixed a bug introduced in V1.69 that caused v-carving cleanup calculations to fail sometimes.
+    
+    Version 1.71 - Changed Potrace version that is distributed with F-Engrave from 1.10 to 1.16
+                 - Fixed problem with cleanup cutting wrong area for some cases
+    
     """
 
-version = '1.70'
+version = '1.71'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 
@@ -7502,27 +7506,6 @@ class Application(Frame):
                 oldx, oldy = x2, y2
         Lend.append(cnt)
 
-
-        #################################
-        ###   Eliminate Tiny Features ###
-        #################################
-        for k in range(len(Lbeg)):
-            Start = Lbeg[k]
-            End   = Lend[k]
-            step = 1
-            [x1,y1]   = ecoords[Start+0]
-            for i in range(Start+1,End+step,step):
-                [x2,y2]   = ecoords[i]
-                Lseg = sqrt((x2-x1)**2 + (y2-y1)**2)
-                if Lseg >= Acc:
-                    x1=float(x2)
-                    y1=float(y2)
-                elif i!= End:
-                    ecoords[i]=[float(x1),float(y1)]
-                else:
-                    [x1,y1]   = ecoords[Start]
-                    ecoords[End]  =[float(x1),float(y1)]
-
         ####################
         if (not self.batch.get()):
             self.statusMessage.set('Checking Input Image Data')
@@ -7628,6 +7611,26 @@ class Application(Frame):
                 LNbeg.append(len(ecoords)-2)
                 LNend.append(len(ecoords)-1)
 
+        #################################
+        ###   Eliminate Tiny Features ###
+        #################################
+        for k in range(len(Lbeg)):
+            Start = Lbeg[k]
+            End   = Lend[k]
+            step = 1
+            [x1,y1]   = ecoords[Start+0]
+            for i in range(Start+1,End+step,step):
+                [x2,y2]   = ecoords[i]
+                Lseg = sqrt((x2-x1)**2 + (y2-y1)**2)
+                if Lseg >= Acc:
+                    x1=float(x2)
+                    y1=float(y2)
+                elif i!= End:
+                    ecoords[i]=[float(x1),float(y1)]
+                else:
+                    [x1,y1]   = ecoords[Start]
+                    ecoords[End]  =[float(x1),float(y1)]
+                    
         ###########################################################
         ### Make new sequential ecoords for each new loop       ###
         ###########################################################

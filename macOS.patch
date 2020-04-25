@@ -1,5 +1,5 @@
---- F-Engrave-1.70_src/TTF2CXF_STREAM/Makefile	2013-07-21 22:03:00.000000000 -0700
-+++ TTF2CXF_STREAM/Makefile	2020-01-20 06:59:17.000000000 -0800
+--- F-Engrave-1.71_src/TTF2CXF_STREAM/Makefile	2013-07-21 22:03:00.000000000 -0400
++++ TTF2CXF_STREAM/Makefile	2020-04-25 09:12:34.000000000 -0400
 @@ -2,9 +2,22 @@
  # Makefile for TTF2CXF_STREAM
  # Date: 6/28/2013
@@ -34,9 +34,9 @@
 +clean:
 +	-@rm ttf2cxf_stream
  
---- F-Engrave-1.70_src/f-engrave.py	2020-01-13 18:14:28.000000000 -0800
-+++ f-engrave.py	2020-01-20 06:59:17.000000000 -0800
-@@ -336,6 +336,46 @@
+--- F-Engrave-1.71_src/f-engrave.py	2020-02-26 19:03:38.000000000 -0500
++++ f-engrave.py	2020-04-25 09:12:34.000000000 -0400
+@@ -340,6 +340,46 @@
  Zero       = 0.00001
  STOP_CALC = 0
  
@@ -83,7 +83,7 @@
  #raw_input("PAUSED: Press ENTER to continue")
  ################################################################################
  #             Function for outputting messages to different locations          #
-@@ -1801,7 +1841,7 @@
+@@ -1805,7 +1845,7 @@
          #    fmessage("Python Imaging Library (PIL) was not found...Bummer")
          #    fmessage("    PIL enables more image file formats.")
  
@@ -92,7 +92,7 @@
          try:
              p = Popen(cmd, stdout=PIPE, stderr=PIPE)
              stdout, stderr = p.communicate()
-@@ -2418,8 +2458,14 @@
+@@ -2422,8 +2462,14 @@
          self.Listbox_1.bind("<Down>", self.Listbox_Key_Down)
  
          try:
@@ -109,7 +109,7 @@
          except:
              font_files=" "
          for name in font_files:
-@@ -5360,7 +5406,7 @@
+@@ -5364,7 +5410,7 @@
                  self.Checkbutton_useIMGsize.place_forget()
  
                  # Left Column #
@@ -118,7 +118,7 @@
                  w_entry=60
                  w_units=35
  
-@@ -5514,15 +5560,15 @@
+@@ -5518,15 +5564,15 @@
                  self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
  
                  Ybut=self.h-60
@@ -137,7 +137,7 @@
                  self.Input_Label.place(x=222, y=self.h-130, width=112, height=21, anchor=W)
                  self.Input_frame.place(x=222, y=self.h-110, width=self.w-455, height=75)
  
-@@ -5535,7 +5581,7 @@
+@@ -5539,7 +5585,7 @@
                  self.Label_flip.configure(text="Flip Image")
                  self.Label_mirror.configure(text="Mirror Image")
                  # Left Column #
@@ -146,7 +146,7 @@
                  w_entry=60
                  w_units=35
  
-@@ -5681,15 +5727,15 @@
+@@ -5685,15 +5731,15 @@
                  self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
  
                  Ybut=self.h-60
@@ -165,7 +165,7 @@
                  self.Input_Label.place_forget()
                  self.Input_frame.place_forget()
  
-@@ -5914,7 +5960,7 @@
+@@ -5918,7 +5964,7 @@
                  option = option + "-e"
              else:
                  option = ""
@@ -174,7 +174,7 @@
                     option,
                     "-s",self.segarc.get(),
                     file_full,"STDOUT"]
-@@ -8496,6 +8542,10 @@
+@@ -8499,6 +8545,10 @@
                  os.remove("f_engrave_icon")
              except:
                  pass
@@ -185,7 +185,7 @@
  ################################################################################
  #                         General Settings Window                              #
  ################################################################################
-@@ -8597,18 +8647,18 @@
+@@ -8600,18 +8650,18 @@
  
          D_Yloc=D_Yloc+D_dY
          self.Label_arcfit = Label(gen_settings,text="Arc Fitting")
@@ -211,7 +211,7 @@
          self.Radio_arcfit_center.configure(variable=self.arc_fit )
  
          D_Yloc=D_Yloc+D_dY
-@@ -8640,28 +8690,25 @@
+@@ -8643,28 +8693,25 @@
          self.Checkbutton_var_dis.configure(variable=self.var_dis)
  
          D_Yloc=D_Yloc+D_dY
@@ -247,7 +247,7 @@
  
          if self.input_type.get() != "text":
                  self.Entry_Fontdir.configure(state="disabled")
-@@ -8722,6 +8769,9 @@
+@@ -8725,6 +8772,9 @@
          self.GEN_Close.place(x=Xbut+65, y=Ybut, width=130, height=30, anchor="w")
          self.GEN_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
  
@@ -257,7 +257,7 @@
      ################################################################################
      #                         V-Carve Settings window                              #
      ################################################################################
-@@ -8758,21 +8808,18 @@
+@@ -8761,21 +8811,18 @@
          self.Label_cutter_type = Label(vcarve_settings,text="Cutter Type")
          self.Label_cutter_type.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -285,7 +285,7 @@
          self.Radio_Type_STRAIGHT.configure(variable=self.bit_shape)
  
          self.bit_shape.trace_variable("w", self.Entry_Bit_Shape_var_Callback)
-@@ -8866,7 +8913,7 @@
+@@ -8869,7 +8916,7 @@
          self.Label_BoxGap_u.place(x=w_label+x_radio_offset+175, y=D_Yloc, width=100, height=21)
  
          self.GEN_Reload = Button(vcarve_settings,text="Recalculate")
@@ -294,7 +294,7 @@
          self.GEN_Reload.bind("<ButtonRelease-1>", self.Recalculate_Click)
          
          D_Yloc=D_Yloc+D_dY+12
-@@ -8973,8 +9020,8 @@
+@@ -8976,8 +9023,8 @@
          self.Label_clean = Label(vcarve_settings,text="Cleanup Operations")
          self.Label_clean.place(x=center_loc, y=D_Yloc, width=w_label, height=21,anchor=CENTER)
  
@@ -305,7 +305,7 @@
  
          D_Yloc=D_Yloc+D_dY
          self.Label_CLEAN_DIA = Label(vcarve_settings,text="Cleanup Cut Diameter")
-@@ -9003,18 +9050,18 @@
+@@ -9006,18 +9053,18 @@
          self.Label_clean_P = Label(vcarve_settings,text="Cleanup Cut Directions")
          self.Label_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -329,7 +329,7 @@
  
          D_Yloc=D_Yloc+12
  
-@@ -9033,18 +9080,18 @@
+@@ -9036,18 +9083,18 @@
          self.Label_v_clean_P = Label(vcarve_settings,text="V-Bit Cut Directions")
          self.Label_v_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -353,7 +353,7 @@
  
          ## V-Bit Picture ##
          self.PHOTO = PhotoImage(format='gif',data=
-@@ -9074,7 +9121,7 @@
+@@ -9077,7 +9124,7 @@
          Xbut=int(vcarve_settings.winfo_width()/2)
  
          self.VCARVE_Recalculate = Button(vcarve_settings,text="Calculate V-Carve", command=self.VCARVE_Recalculate_Click)
@@ -362,7 +362,7 @@
  
  
          if self.cut_type.get() == "v-carve":
-@@ -9086,6 +9133,9 @@
+@@ -9089,6 +9136,9 @@
          self.VCARVE_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="w")
          self.VCARVE_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
  
@@ -372,7 +372,7 @@
  ####################################
  # Gcode class for creating G-Code
  ####################################
-@@ -9636,5 +9686,9 @@
+@@ -9639,5 +9689,9 @@
          fmessage("Unable to create temporary icon file.")
  
  app.f_engrave_init()

@@ -49,6 +49,6 @@ app = BUNDLE(exe,
 				'CFBundleIdentifier': 'com.scorchworks.f-engrave',
 				'CFBundleName': 'F-Engrave',
 				'CFBundleDisplayName': 'F-Engrave',
-				'CFBundleShortVersionString': '1.70'
+				'CFBundleShortVersionString': '1.71'
 				}
 			)
