@@ -62,15 +62,15 @@ run or moved to your Applications folder.
 
 To **update** the code to a new version of `f-engrave` from [http://www.scorchworks.com/Fengrave/fengrave.html][Scorchworks], which is my typical workflow. **NOTE** I do this on **OSX 10.10 Yosemite** machine to make sure the compiled application can run on versions >= 10.10. 
 
-    1. Get the latest source link from [http://www.scorchworks.com/Fengrave/fengrave.html][Scorchworks]
-    2. `brew update` and `brew upgrade` to make sure my Homebrew is as up-to-date as it can be on an old OS.
-    3. `./update-macOS.sh -u "SOURCE-LINK"`. This creates a `.dmg` image file tagged with the version number.
-    4. Check everything seems to work, launch from the disk image, check that fonts are loaded, then check `.bmp` loading of the JellyBean file (tests `potrace`).
-    5. Check source diffs, and move `macOS-VERSION.patch` to `macOS.patch`
-    6. `git commit -a -m"Update to version 1.XX"`
-    7. `git tag v1.XX`
-    8. `git push & git push --tags`
-    9. Create a release from the tag on GitHub and upload the `.dmg` file to it.   
+1. Get the latest source link from [http://www.scorchworks.com/Fengrave/fengrave.html][Scorchworks]
+2. `brew update` and `brew upgrade` to make sure my Homebrew is as up-to-date as it can be on an old OS.
+3. `./update-macOS.sh -u "SOURCE-LINK"`. This creates a `.dmg` image file tagged with the version number.
+4. Check everything seems to work, launch from the disk image, check that fonts are loaded, then check `.bmp` loading of the JellyBean file (tests `potrace`).
+5. Check source diffs, and move `macOS-VERSION.patch` to `macOS.patch`
+6. `git commit -a -m"Update to version 1.XX"`
+7. `git tag v1.XX`
+8. `git push & git push --tags`
+9. Create a release from the tag on GitHub and upload the `.dmg` file to it.   
 
 The following process [Make mac binaries with pyinstaller that are backwards-compatible on Mac OS X](https://gist.github.com/phfaist/a5b8a895b003822df5397731f4673042) looks appealing to resolving having to have a 10.10 box kicking around.
 
