@@ -4,6 +4,12 @@
 # It is here because I am lazy
 # ---------------------------------------------------------------------
 
+# Make sure we're in the same folder as this file
+cd -P -- $(dirname -- "$0")/
+
+# Set this to the version of python we want to use (via pyenv)
+PYENV_PYTHON_VERSION=3.8.2
+
 # Call getopt to validate the provided input. 
 VERBOSE=false
 MAKE_DISK=false
@@ -65,60 +71,59 @@ then
 	# Install python environments...
 	brew install pyenv
 	check_failure "Failed to install pyenv"
-	eval "$(pyenv init -)"
-	check_failure "Failed to initialize pyenv"
-
-	#PYTHON_CONFIGURE_OPTS="--enable-framework" pyenv install 3.7.2
-	PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 3.8.2
-	check_failure "Failed to install pyenv"
-	pyenv local 3.8.2
-	pyenv rehash
-	check_failure "Failed to set up pyenv"
-	pip install --upgrade pip
 
 	# Installs Python3 (which includes pip3) and freetype libraries (for ttf2cxf)
-	brew install freetype
-	check_failure "Failed to install freetype"
+	brew install freetype potrace
+	check_failure "Failed to install freetype and potrace"
 fi
 
 echo "Validate environment..."
-
-# Ensure that the user installed potrace
-command -v potrace > /dev/null || fail 1 "Please install potrace via: brew install potrace"
 
 # Get version from main source file.
 VERSION=$(grep "^version " f-engrave.py | grep -Eo "[\.0-9]+")
 [[ -z $VERSION ]] && fail 1 "Could not determine f-engrave version"
 
-# Determine Python to use... prefer Python3
-PYTHON=$(command -v python3)
-if [[ -z $PYTHON ]]
-then
-	PYTHON=$(command -v python)
-fi
+# Ensure that the user installed external dependencies
+command -v freetype-config > /dev/null || fail 1 "Please rerun with -s to setup build environment"
+command -v potrace         > /dev/null || fail 1 "Please rerun with -s to setup build environment"
 
-PY_VER=$(${PYTHON} --version 2>&1)
-[[ $PY_VER == *"3."* ]] || fail 1 "Packaging REQUIRES Python3"
+PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install --skip-existing $PYENV_PYTHON_VERSION
+check_failure "Failed to install pyenv"
 
-PIP=$(command -v pip3)
-if [[ -z $PIP ]]
-then
-	PIP=$(command -v pip)
-fi
+eval "$(pyenv init -)"	
+check_failure "Failed to initialize pyenv"
+
+pyenv local $PYENV_PYTHON_VERSION && pyenv rehash
+check_failure "Failed to initialize pyenv"
+
+# Use the specific python version from pyenv so we don't get hung up on the
+# system python or a user's own custom environment.
+PYTHON=$(command -v python)
+PY_VER=$($PYTHON --version 2>&1 | awk '{ print $2 }')
+[[ $PY_VER == "3.8.2" ]] || fail 1 "Packaging REQUIRES Python $PYENV_PYTHON_VERSION. Please rerun with -s to setup build environment"
+
+# Set up and activate virtual environment for dependencies
+echo "Setup Python Virtual Environment..."
+$PYTHON -m venv python_venv
+check_failure "Failed to initialize python venv"
+source ./python_venv/bin/activate
+check_failure "Failed to activate python venv"
+
+# Unset our python variable now that we are running inside of the virtualenv
+# and can just use `python` directly
+PYTHON=
 
 # Clean up any previous build work
 echo "Remove old builds..."
 rm -rf ./build ./dist *.pyc ./__pycache__
 
-# Set up and activate virtual environment for dependencies
-echo "Setup Python Virtual Environment..."
-${PYTHON} -m venv python_venv
-check_failure "Failed to initialize python venv"
-source ./python_venv/bin/activate
+# Make sure pip is fully updated
+# Pip should now safely be loading from the pyenv
+pip install --upgrade pip
 
 # Install requirements
 echo "Install Dependencies..."
-${PIP} install -r requirements.txt
+pip install -r requirements.txt
 check_failure "Failed to install python requirements"
 
 echo "Build macOS Application Bundle..."
@@ -128,15 +133,19 @@ echo "Build macOS Application Bundle..."
 (cd TTF2CXF_STREAM; make osx)
 check_failure "Failed to build TTF2CXF_STREAM"
 
+echo "Packaging f-engrave bundle for MacOS"
 if [[ "$PYINSTALLER" = true ]]
 then
 	# Make the bundle with PyInstaller
-	${PYTHON} -OO -m PyInstaller -y --clean f-engrave.spec
+	python -OO -m PyInstaller -y --clean f-engrave.spec
 	check_failure "Failed to package f-engrave bundle"
 
 	# Remove temporary binary
 	rm -rf dist/f-engrave
 else
+	# Exit the pyenv virtualenv
+	deactivate
+
 	# Use system (OSX) python and py2app. Do use not homebrew or another version. 
 	# This ensures things will work on other people's computers who might not
 	# have great tools like homebrew installed.
@@ -154,7 +163,7 @@ else
 	#   - csrutil enable
 	#   - Reboot and build...
 	# You need to do that before this will work!
-	/usr/bin/python setup.py py2app
+	python setup.py py2app
 	check_failure "Failed to setup py2app"
 
 	# Py2app does not copy permissions (executable) when bundling resources.
