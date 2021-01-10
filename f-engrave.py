@@ -279,11 +279,18 @@
     Version 1.71 - Changed Potrace version that is distributed with F-Engrave from 1.10 to 1.16
                  - Fixed problem with cleanup cutting wrong area for some cases
     
+    Version 1.72 - Fixed a bug that resulted in bad cleanup tool paths in some situations
+                 - Explicitly set the font for the GUI
+
+    Version 1.73 - Made importing png images with clear backgrounds work better
+                 - Added PNG and TIF to the image file types that show up by default
+    
     """
 
-version = '1.71'
+version = '1.73'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
+DEBUG = False
 
 import sys
 VERSION = sys.version_info[0]
@@ -422,6 +429,19 @@ def message_ask_ok_cancel(title, mess):
     else:
         result=tkMessageBox.askokcancel(title, mess)
     return result
+
+################################################################################
+#                         Debug Message Box                                    #
+################################################################################
+def debug_message(message):
+    global DEBUG
+    title = "Debug Message"
+    if DEBUG:
+        if VERSION == 3:
+            tkinter.messagebox.showinfo(title,message)
+        else:
+            tkMessageBox.showinfo(title,message)
+            pass
 
 ############################################################################
 # routine takes an x and a y coords and does a coordinate transformation   #
@@ -2549,7 +2569,7 @@ class Application(Frame):
                          command = self.menu_File_Open_G_Code_File)
         top_File.add_separator()
         if self.POTRACE_AVAIL == TRUE:
-            top_File.add("command", label = "Open DXF/Bitmap", \
+            top_File.add("command", label = "Open DXF/Image", \
                              command = self.menu_File_Open_DXF_File)
         else:
             top_File.add("command", label = "Open DXF", \
@@ -4822,7 +4842,7 @@ class Application(Frame):
 
         if self.POTRACE_AVAIL == TRUE:
             if PIL:
-                fileselect = askopenfilename(filetypes=[("DXF/Bitmap Files", ("*.dxf","*.bmp","*.pbm","*.ppm","*.pgm","*.pnm")),
+                fileselect = askopenfilename(filetypes=[("DXF/Image Files", ("*.dxf","*.png","*.bmp","*.tif")),
                                                     ("DXF Files","*.dxf"),\
                                                     ("Bitmap Files",("*.bmp","*.pbm","*.ppm","*.pgm","*.pnm")),\
                                                     ("Slower Image Files",("*.jpg","*.png","*.gif","*.tif")),\
@@ -6073,6 +6093,12 @@ class Application(Frame):
             if PIL:
                 try:
                     PIL_im = Image.open(file_full)
+                    mode = PIL_im.mode
+                    if len(mode)>3:
+                        blank = Image.new("RGB", PIL_im.size, (255,255,255))
+                        blank.paste( PIL_im, (0, 0), PIL_im ) 
+                        PIL_im = blank
+                    
                     PIL_im = PIL_im.convert("1")
                     file_full_tmp=self.HOME_DIR + "/fengrave_tmp.bmp"
                     PIL_im.save(file_full_tmp,"bmp")
@@ -7315,12 +7341,12 @@ class Application(Frame):
                     if calc_flag != 0:
                         CUR_LENGTH = CUR_LENGTH + Lseg
                     else:
-                        #theta = phi         #V1.62
-                        #x0=x2               #V1.62
-                        #y0=y2               #V1.62
-                        #seg_sin0=seg_sin    #V1.62
-                        #seg_cos0=seg_cos    #V1.62
-                        #char_num0=char_num  #V1.62
+                        theta = phi         #commented out in V1.62 brought back in V1.72
+                        x0=x2               #commented out in V1.62 brought back in V1.72
+                        y0=y2               #commented out in V1.62 brought back in V1.72
+                        seg_sin0=seg_sin    #commented out in V1.62 brought back in V1.72
+                        seg_cos0=seg_cos    #commented out in V1.62 brought back in V1.72
+                        char_num0=char_num  #commented out in V1.62 brought back in V1.72
                         continue
 
 
@@ -9682,7 +9708,21 @@ app = Application(root)
 app.master.title("F-Engrave V"+version)
 app.master.iconname("F-Engrave")
 app.master.minsize(780,540)
+try:
+    try:
+        import tkFont
+        default_font = tkFont.nametofont("TkDefaultFont")
+    except:
+        import tkinter.font
+        default_font = tkinter.font.nametofont("TkDefaultFont")
 
+    default_font.configure(size=9)
+    default_font.configure(family='arial')
+    #print(default_font.cget("size"))
+    #print(default_font.cget("family"))
+except:
+    debug_message("Font Set Failed.")
+    
 try:
     try:
         app.master.iconbitmap(r'emblem')
