@@ -349,7 +349,21 @@ STOP_CALC = 0
 
 # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
 # Inject system font directory and default document location
-sys.argv.extend(('--fontdir', '/Library/Fonts', '--defdir', '~/Documents'))
+sys.argv.extend(('--fontdir', '/System/Library/Fonts/Supplemental', '--defdir', '~/Documents'))
+
+# Get platform specific default font
+def get_default_font_name():
+    from sys import platform
+    if platform == "linux" or platform == "linux2":
+        default_font_name = 'TkDefaultFont'
+    elif platform == "darwin":
+        default_font_name = 'systemSystemFont'
+    elif platform == "win32":
+        default_font_name = 'TkDefaultFont'
+    else:
+        default_font_name = 'TkDefaultFont'
+
+    return default_font_name
 
 # Used to invole ttf2cxf_stream, when in bundle on macOS
 def ttf2cxf_stream():
@@ -367,33 +381,6 @@ def potrace():
         potrace_cmd = os.path.join(bundle_dir, potrace_cmd)
 
     return potrace_cmd
-
-# macOS Mojave and tikinter buttons are blank
-# https://stackoverflow.com/questions/52529403/button-text-of-tkinter-not-works-in-mojave]
-# Essentially the fix is to slightly resize the window after it opens.
-macOS_button_fix_enabled = False
-
-def macOS_button_fix(win):
-    def make_window_resizer(w):
-        def window_resizer():
-            a = w.winfo_geometry().split('+')[0]
-            (width, height) = a.split('x')
-            w.geometry('%dx%d' % (int(width)+1, int(height)+1))
-
-        return window_resizer
-
-    # The fix causes a bit of flicker on startup, so only run it for macOS >= 10.14
-    # Check for macOS >= 10.14
-    if macOS_button_fix_enabled:
-        try:
-            import platform
-            v, _, _ = platform.mac_ver()
-            v = float('.'.join(v.split('.')[:2]))
-            if v >= 10.14:
-                win.update()
-                win.after(0, make_window_resizer(win))
-        except:
-            pass
 
 #raw_input("PAUSED: Press ENTER to continue")
 ################################################################################
@@ -8580,9 +8567,6 @@ class Application(Frame):
             except:
                 pass
 
-        # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
-        macOS_button_fix(pbm_settings)
-
 ################################################################################
 #                         General Settings Window                              #
 ################################################################################
@@ -8805,9 +8789,6 @@ class Application(Frame):
         self.GEN_Close = Button(gen_settings,text="Close")
         self.GEN_Close.place(x=Xbut+65, y=Ybut, width=130, height=30, anchor="w")
         self.GEN_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
-
-        # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
-        macOS_button_fix(gen_settings)
 
     ################################################################################
     #                         V-Carve Settings window                              #
@@ -9169,9 +9150,6 @@ class Application(Frame):
         self.VCARVE_Close = Button(vcarve_settings,text="Close")
         self.VCARVE_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="w")
         self.VCARVE_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
-
-        # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
-        macOS_button_fix(vcarve_settings)
 
 ####################################
 # Gcode class for creating G-Code
@@ -9699,7 +9677,8 @@ def temp_icon(icon_file_name):
     f.write("   0x00, 0xf0, 0xff, 0xff, 0xff, 0xff, 0x7f, 0x00, 0x00, 0xf0, 0xff, 0xff,\n")
     f.write("   0xff, 0xff, 0xff, 0x01, 0x00, 0xfc, 0xff, 0xff };\n")
     f.close()
-    
+
+
 ################################################################################
 #                          Start-up Application                                #
 ################################################################################
@@ -9708,13 +9687,14 @@ app = Application(root)
 app.master.title("F-Engrave V"+version)
 app.master.iconname("F-Engrave")
 app.master.minsize(780,540)
+
 try:
     try:
         import tkFont
-        default_font = tkFont.nametofont("TkDefaultFont")
+        default_font = tkFont.nametofont(get_default_font_name())
     except:
         import tkinter.font
-        default_font = tkinter.font.nametofont("TkDefaultFont")
+        default_font = tkinter.font.nametofont(get_default_font_name())
 
     default_font.configure(size=9)
     default_font.configure(family='arial')
@@ -9737,9 +9717,5 @@ except:
         fmessage("Unable to create temporary icon file.")
 
 app.f_engrave_init()
-
-# macOS Patch - Stephen Houser (stephenhouser@gmail.com)
-macOS_button_fix_enabled = True
-macOS_button_fix(root)
 root.mainloop()
 

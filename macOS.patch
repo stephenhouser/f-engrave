@@ -1,12 +1,26 @@
---- F-Engrave-1.73_src/f-engrave.py	2020-07-06 21:57:22.000000000 -0700
-+++ f-engrave.py	2021-01-10 14:47:56.000000000 -0800
-@@ -347,6 +347,54 @@
+--- F-Engrave-1.73_src/f-engrave.py	2020-07-06 21:57:22.000000000 -0400
++++ f-engrave.py	2021-01-25 16:31:26.000000000 -0500
+@@ -347,6 +347,41 @@
  Zero       = 0.00001
  STOP_CALC = 0
  
 +# macOS Patch - Stephen Houser (stephenhouser@gmail.com)
 +# Inject system font directory and default document location
-+sys.argv.extend(('--fontdir', '/Library/Fonts', '--defdir', '~/Documents'))
++sys.argv.extend(('--fontdir', '/System/Library/Fonts/Supplemental', '--defdir', '~/Documents'))
++
++# Get platform specific default font
++def get_default_font_name():
++    from sys import platform
++    if platform == "linux" or platform == "linux2":
++        default_font_name = 'TkDefaultFont'
++    elif platform == "darwin":
++        default_font_name = 'systemSystemFont'
++    elif platform == "win32":
++        default_font_name = 'TkDefaultFont'
++    else:
++        default_font_name = 'TkDefaultFont'
++
++    return default_font_name
 +
 +# Used to invole ttf2cxf_stream, when in bundle on macOS
 +def ttf2cxf_stream():
@@ -25,37 +39,10 @@
 +
 +    return potrace_cmd
 +
-+# macOS Mojave and tikinter buttons are blank
-+# https://stackoverflow.com/questions/52529403/button-text-of-tkinter-not-works-in-mojave]
-+# Essentially the fix is to slightly resize the window after it opens.
-+macOS_button_fix_enabled = False
-+
-+def macOS_button_fix(win):
-+    def make_window_resizer(w):
-+        def window_resizer():
-+            a = w.winfo_geometry().split('+')[0]
-+            (width, height) = a.split('x')
-+            w.geometry('%dx%d' % (int(width)+1, int(height)+1))
-+
-+        return window_resizer
-+
-+    # The fix causes a bit of flicker on startup, so only run it for macOS >= 10.14
-+    # Check for macOS >= 10.14
-+    if macOS_button_fix_enabled:
-+        try:
-+            import platform
-+            v, _, _ = platform.mac_ver()
-+            v = float('.'.join(v.split('.')[:2]))
-+            if v >= 10.14:
-+                win.update()
-+                win.after(0, make_window_resizer(win))
-+        except:
-+            pass
-+
  #raw_input("PAUSED: Press ENTER to continue")
  ################################################################################
  #             Function for outputting messages to different locations          #
-@@ -1825,7 +1873,7 @@
+@@ -1825,7 +1860,7 @@
          #    fmessage("Python Imaging Library (PIL) was not found...Bummer")
          #    fmessage("    PIL enables more image file formats.")
  
@@ -64,7 +51,7 @@
          try:
              p = Popen(cmd, stdout=PIPE, stderr=PIPE)
              stdout, stderr = p.communicate()
-@@ -1840,7 +1888,7 @@
+@@ -1840,7 +1875,7 @@
              fmessage("ttf2cxf_stream executable is not present/working...Bummer")
              self.TTF_AVAIL = FALSE
  
@@ -73,7 +60,7 @@
          try:
              p = Popen(cmd, stdout=PIPE, stderr=PIPE)
              stdout, stderr = p.communicate()
-@@ -2442,8 +2490,14 @@
+@@ -2442,8 +2477,14 @@
          self.Listbox_1.bind("<Down>", self.Listbox_Key_Down)
  
          try:
@@ -90,7 +77,7 @@
          except:
              font_files=" "
          for name in font_files:
-@@ -5384,7 +5438,7 @@
+@@ -5384,7 +5425,7 @@
                  self.Checkbutton_useIMGsize.place_forget()
  
                  # Left Column #
@@ -99,7 +86,7 @@
                  w_entry=60
                  w_units=35
  
-@@ -5538,15 +5592,15 @@
+@@ -5538,15 +5579,15 @@
                  self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
  
                  Ybut=self.h-60
@@ -118,7 +105,7 @@
                  self.Input_Label.place(x=222, y=self.h-130, width=112, height=21, anchor=W)
                  self.Input_frame.place(x=222, y=self.h-110, width=self.w-455, height=75)
  
-@@ -5559,7 +5613,7 @@
+@@ -5559,7 +5600,7 @@
                  self.Label_flip.configure(text="Flip Image")
                  self.Label_mirror.configure(text="Mirror Image")
                  # Left Column #
@@ -127,7 +114,7 @@
                  w_entry=60
                  w_units=35
  
-@@ -5705,15 +5759,15 @@
+@@ -5705,15 +5746,15 @@
                  self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
  
                  Ybut=self.h-60
@@ -146,7 +133,7 @@
                  self.Input_Label.place_forget()
                  self.Input_frame.place_forget()
  
-@@ -5938,7 +5992,7 @@
+@@ -5938,7 +5979,7 @@
                  option = option + "-e"
              else:
                  option = ""
@@ -155,7 +142,7 @@
                     option,
                     "-s",self.segarc.get(),
                     file_full,"STDOUT"]
-@@ -6007,14 +6061,14 @@
+@@ -6007,14 +6048,14 @@
              try:
                  #cmd = ["potrace","-b","dxf",file_full,"-o","-"]
                  if self.bmp_longcurve.get() == 1:
@@ -172,7 +159,7 @@
                         "-z", self.bmp_turnpol.get(),
                         "-t", self.bmp_turdsize.get(),
                         "-a",self.bmp_alphamax.get(),
-@@ -6051,14 +6105,14 @@
+@@ -6051,14 +6092,14 @@
                  
                      #cmd = ["potrace","-b","dxf",file_full,"-o","-"]
                      if self.bmp_longcurve.get() == 1:
@@ -189,18 +176,15 @@
                             "-z", self.bmp_turnpol.get(),
                             "-t", self.bmp_turdsize.get(),
                             "-a",self.bmp_alphamax.get(),
-@@ -8525,6 +8579,10 @@
+@@ -8525,6 +8566,7 @@
                  os.remove("f_engrave_icon")
              except:
                  pass
 +
-+        # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
-+        macOS_button_fix(pbm_settings)
-+
  ################################################################################
  #                         General Settings Window                              #
  ################################################################################
-@@ -8626,18 +8684,18 @@
+@@ -8626,18 +8668,18 @@
  
          D_Yloc=D_Yloc+D_dY
          self.Label_arcfit = Label(gen_settings,text="Arc Fitting")
@@ -226,7 +210,7 @@
          self.Radio_arcfit_center.configure(variable=self.arc_fit )
  
          D_Yloc=D_Yloc+D_dY
-@@ -8669,28 +8727,25 @@
+@@ -8669,28 +8711,25 @@
          self.Checkbutton_var_dis.configure(variable=self.var_dis)
  
          D_Yloc=D_Yloc+D_dY
@@ -262,17 +246,7 @@
  
          if self.input_type.get() != "text":
                  self.Entry_Fontdir.configure(state="disabled")
-@@ -8751,6 +8806,9 @@
-         self.GEN_Close.place(x=Xbut+65, y=Ybut, width=130, height=30, anchor="w")
-         self.GEN_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
- 
-+        # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
-+        macOS_button_fix(gen_settings)
-+
-     ################################################################################
-     #                         V-Carve Settings window                              #
-     ################################################################################
-@@ -8787,21 +8845,18 @@
+@@ -8787,21 +8826,18 @@
          self.Label_cutter_type = Label(vcarve_settings,text="Cutter Type")
          self.Label_cutter_type.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -300,7 +274,7 @@
          self.Radio_Type_STRAIGHT.configure(variable=self.bit_shape)
  
          self.bit_shape.trace_variable("w", self.Entry_Bit_Shape_var_Callback)
-@@ -8895,7 +8950,7 @@
+@@ -8895,7 +8931,7 @@
          self.Label_BoxGap_u.place(x=w_label+x_radio_offset+175, y=D_Yloc, width=100, height=21)
  
          self.GEN_Reload = Button(vcarve_settings,text="Recalculate")
@@ -309,7 +283,7 @@
          self.GEN_Reload.bind("<ButtonRelease-1>", self.Recalculate_Click)
          
          D_Yloc=D_Yloc+D_dY+12
-@@ -9002,8 +9057,8 @@
+@@ -9002,8 +9038,8 @@
          self.Label_clean = Label(vcarve_settings,text="Cleanup Operations")
          self.Label_clean.place(x=center_loc, y=D_Yloc, width=w_label, height=21,anchor=CENTER)
  
@@ -320,7 +294,7 @@
  
          D_Yloc=D_Yloc+D_dY
          self.Label_CLEAN_DIA = Label(vcarve_settings,text="Cleanup Cut Diameter")
-@@ -9032,18 +9087,18 @@
+@@ -9032,18 +9068,18 @@
          self.Label_clean_P = Label(vcarve_settings,text="Cleanup Cut Directions")
          self.Label_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -344,7 +318,7 @@
  
          D_Yloc=D_Yloc+12
  
-@@ -9062,18 +9117,18 @@
+@@ -9062,18 +9098,18 @@
          self.Label_v_clean_P = Label(vcarve_settings,text="V-Bit Cut Directions")
          self.Label_v_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -368,7 +342,7 @@
  
          ## V-Bit Picture ##
          self.PHOTO = PhotoImage(format='gif',data=
-@@ -9103,7 +9158,7 @@
+@@ -9103,7 +9139,7 @@
          Xbut=int(vcarve_settings.winfo_width()/2)
  
          self.VCARVE_Recalculate = Button(vcarve_settings,text="Calculate V-Carve", command=self.VCARVE_Recalculate_Click)
@@ -377,28 +351,35 @@
  
  
          if self.cut_type.get() == "v-carve":
-@@ -9115,6 +9170,9 @@
-         self.VCARVE_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="w")
-         self.VCARVE_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
- 
-+        # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
-+        macOS_button_fix(vcarve_settings)
+@@ -9641,7 +9677,8 @@
+     f.write("   0x00, 0xf0, 0xff, 0xff, 0xff, 0xff, 0x7f, 0x00, 0x00, 0xf0, 0xff, 0xff,\n")
+     f.write("   0xff, 0xff, 0xff, 0x01, 0x00, 0xfc, 0xff, 0xff };\n")
+     f.close()
+-    
 +
- ####################################
- # Gcode class for creating G-Code
- ####################################
-@@ -9679,5 +9737,9 @@
-         fmessage("Unable to create temporary icon file.")
- 
- app.f_engrave_init()
 +
-+# macOS Patch - Stephen Houser (stephenhouser@gmail.com)
-+macOS_button_fix_enabled = True
-+macOS_button_fix(root)
- root.mainloop()
+ ################################################################################
+ #                          Start-up Application                                #
+ ################################################################################
+@@ -9650,13 +9687,14 @@
+ app.master.title("F-Engrave V"+version)
+ app.master.iconname("F-Engrave")
+ app.master.minsize(780,540)
++
+ try:
+     try:
+         import tkFont
+-        default_font = tkFont.nametofont("TkDefaultFont")
++        default_font = tkFont.nametofont(get_default_font_name())
+     except:
+         import tkinter.font
+-        default_font = tkinter.font.nametofont("TkDefaultFont")
++        default_font = tkinter.font.nametofont(get_default_font_name())
  
---- F-Engrave-1.73_src/TTF2CXF_STREAM/Makefile	2013-07-21 23:03:00.000000000 -0700
-+++ TTF2CXF_STREAM/Makefile	2021-01-10 14:47:56.000000000 -0800
+     default_font.configure(size=9)
+     default_font.configure(family='arial')
+--- F-Engrave-1.73_src/TTF2CXF_STREAM/Makefile	2013-07-21 23:03:00.000000000 -0400
++++ TTF2CXF_STREAM/Makefile	2021-01-10 17:47:56.000000000 -0500
 @@ -2,9 +2,22 @@
  # Makefile for TTF2CXF_STREAM
  # Date: 6/28/2013
