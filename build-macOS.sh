@@ -81,16 +81,21 @@ then
 		PYTHON_CONFIGURE_OPTS="--with-tcltk-includes='-I$(brew --prefix tcl-tk)/include' --with-tcltk-libs='-L$(brew --prefix tcl-tk)/lib -ltcl8.6 -ltk8.6'" \
 		pyenv install ${PYENV_PYTHON_VERSION}
 	check_failure "Failed to install Python ${PYTHON_VERSION}"
+
+	# Select Python to use
+	pyenv local ${PYTHON_VERSION} && pyenv rehash
+	check_failure "Failed to setup Python ${PYTHON_VERSION}"
 fi
 
 echo "Validate environment..."
+OS=$(uname)
+if [ "${OS}" != "Darwin" ]; then
+	fail "Um... this build script is for OSX/macOS."
+fi
+
 # Ensure that the user installed external dependencies
 command -v freetype-config > /dev/null || fail 1 "Please rerun with -s to setup build environment"
 command -v potrace         > /dev/null || fail 1 "Please rerun with -s to setup build environment"
-
-# Select Python to use
-#pyenv local ${PYTHON_VERSION} && pyenv rehash
-#check_failure "Failed to setup Python ${PYTHON_VERSION}"
 
 # Use the specific python version from pyenv so we don't get hung up on the
 # system python or a user's own custom environment.
