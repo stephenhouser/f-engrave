@@ -1,5 +1,5 @@
 --- F-Engrave-1.73_src/f-engrave.py	2020-07-06 21:57:22.000000000 -0400
-+++ f-engrave.py	2021-01-25 16:31:26.000000000 -0500
++++ f-engrave.py	2021-01-29 16:32:52.000000000 -0500
 @@ -347,6 +347,41 @@
  Zero       = 0.00001
  STOP_CALC = 0
@@ -77,7 +77,18 @@
          except:
              font_files=" "
          for name in font_files:
-@@ -5384,7 +5425,7 @@
+@@ -2477,7 +2518,9 @@
+                               bg='white')
+         self.Input.insert(END, self.default_text)
+         scrollbar.config(command=self.Input.yview)
+-        scrollbar.pack(side=RIGHT, fill=Y)
++        # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
++        # Causes Assertion error drawing CGRoundedRect on OSX 10.10, not on macOS 11 though
++        #scrollbar.pack(side=RIGHT, fill=Y)
+         self.Input.pack(side=LEFT, fill=BOTH, expand=1)
+         self.Input.bind("<Key>", self.Recalculate_RQD_Nocalc)
+         ## self.master.unbind("<Alt>")
+@@ -5384,7 +5427,7 @@
                  self.Checkbutton_useIMGsize.place_forget()
  
                  # Left Column #
@@ -86,7 +97,7 @@
                  w_entry=60
                  w_units=35
  
-@@ -5538,15 +5579,15 @@
+@@ -5538,15 +5581,15 @@
                  self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
  
                  Ybut=self.h-60
@@ -105,7 +116,7 @@
                  self.Input_Label.place(x=222, y=self.h-130, width=112, height=21, anchor=W)
                  self.Input_frame.place(x=222, y=self.h-110, width=self.w-455, height=75)
  
-@@ -5559,7 +5600,7 @@
+@@ -5559,7 +5602,7 @@
                  self.Label_flip.configure(text="Flip Image")
                  self.Label_mirror.configure(text="Mirror Image")
                  # Left Column #
@@ -114,7 +125,7 @@
                  w_entry=60
                  w_units=35
  
-@@ -5705,15 +5746,15 @@
+@@ -5705,15 +5748,15 @@
                  self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
  
                  Ybut=self.h-60
@@ -133,7 +144,7 @@
                  self.Input_Label.place_forget()
                  self.Input_frame.place_forget()
  
-@@ -5938,7 +5979,7 @@
+@@ -5938,7 +5981,7 @@
                  option = option + "-e"
              else:
                  option = ""
@@ -142,7 +153,7 @@
                     option,
                     "-s",self.segarc.get(),
                     file_full,"STDOUT"]
-@@ -6007,14 +6048,14 @@
+@@ -6007,14 +6050,14 @@
              try:
                  #cmd = ["potrace","-b","dxf",file_full,"-o","-"]
                  if self.bmp_longcurve.get() == 1:
@@ -159,7 +170,7 @@
                         "-z", self.bmp_turnpol.get(),
                         "-t", self.bmp_turdsize.get(),
                         "-a",self.bmp_alphamax.get(),
-@@ -6051,14 +6092,14 @@
+@@ -6051,14 +6094,14 @@
                  
                      #cmd = ["potrace","-b","dxf",file_full,"-o","-"]
                      if self.bmp_longcurve.get() == 1:
@@ -176,7 +187,7 @@
                             "-z", self.bmp_turnpol.get(),
                             "-t", self.bmp_turdsize.get(),
                             "-a",self.bmp_alphamax.get(),
-@@ -8525,6 +8566,7 @@
+@@ -8525,6 +8568,7 @@
                  os.remove("f_engrave_icon")
              except:
                  pass
@@ -184,7 +195,7 @@
  ################################################################################
  #                         General Settings Window                              #
  ################################################################################
-@@ -8626,18 +8668,18 @@
+@@ -8626,18 +8670,18 @@
  
          D_Yloc=D_Yloc+D_dY
          self.Label_arcfit = Label(gen_settings,text="Arc Fitting")
@@ -210,7 +221,7 @@
          self.Radio_arcfit_center.configure(variable=self.arc_fit )
  
          D_Yloc=D_Yloc+D_dY
-@@ -8669,28 +8711,25 @@
+@@ -8669,28 +8713,25 @@
          self.Checkbutton_var_dis.configure(variable=self.var_dis)
  
          D_Yloc=D_Yloc+D_dY
@@ -246,7 +257,7 @@
  
          if self.input_type.get() != "text":
                  self.Entry_Fontdir.configure(state="disabled")
-@@ -8787,21 +8826,18 @@
+@@ -8787,21 +8828,18 @@
          self.Label_cutter_type = Label(vcarve_settings,text="Cutter Type")
          self.Label_cutter_type.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -274,7 +285,7 @@
          self.Radio_Type_STRAIGHT.configure(variable=self.bit_shape)
  
          self.bit_shape.trace_variable("w", self.Entry_Bit_Shape_var_Callback)
-@@ -8895,7 +8931,7 @@
+@@ -8895,7 +8933,7 @@
          self.Label_BoxGap_u.place(x=w_label+x_radio_offset+175, y=D_Yloc, width=100, height=21)
  
          self.GEN_Reload = Button(vcarve_settings,text="Recalculate")
@@ -283,7 +294,7 @@
          self.GEN_Reload.bind("<ButtonRelease-1>", self.Recalculate_Click)
          
          D_Yloc=D_Yloc+D_dY+12
-@@ -9002,8 +9038,8 @@
+@@ -9002,8 +9040,8 @@
          self.Label_clean = Label(vcarve_settings,text="Cleanup Operations")
          self.Label_clean.place(x=center_loc, y=D_Yloc, width=w_label, height=21,anchor=CENTER)
  
@@ -294,7 +305,7 @@
  
          D_Yloc=D_Yloc+D_dY
          self.Label_CLEAN_DIA = Label(vcarve_settings,text="Cleanup Cut Diameter")
-@@ -9032,18 +9068,18 @@
+@@ -9032,18 +9070,18 @@
          self.Label_clean_P = Label(vcarve_settings,text="Cleanup Cut Directions")
          self.Label_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -318,7 +329,7 @@
  
          D_Yloc=D_Yloc+12
  
-@@ -9062,18 +9098,18 @@
+@@ -9062,18 +9100,18 @@
          self.Label_v_clean_P = Label(vcarve_settings,text="V-Bit Cut Directions")
          self.Label_v_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -342,7 +353,7 @@
  
          ## V-Bit Picture ##
          self.PHOTO = PhotoImage(format='gif',data=
-@@ -9103,7 +9139,7 @@
+@@ -9103,7 +9141,7 @@
          Xbut=int(vcarve_settings.winfo_width()/2)
  
          self.VCARVE_Recalculate = Button(vcarve_settings,text="Calculate V-Carve", command=self.VCARVE_Recalculate_Click)
@@ -351,7 +362,7 @@
  
  
          if self.cut_type.get() == "v-carve":
-@@ -9641,7 +9677,8 @@
+@@ -9641,7 +9679,8 @@
      f.write("   0x00, 0xf0, 0xff, 0xff, 0xff, 0xff, 0x7f, 0x00, 0x00, 0xf0, 0xff, 0xff,\n")
      f.write("   0xff, 0xff, 0xff, 0x01, 0x00, 0xfc, 0xff, 0xff };\n")
      f.close()
@@ -361,7 +372,7 @@
  ################################################################################
  #                          Start-up Application                                #
  ################################################################################
-@@ -9650,13 +9687,14 @@
+@@ -9650,13 +9689,14 @@
  app.master.title("F-Engrave V"+version)
  app.master.iconname("F-Engrave")
  app.master.minsize(780,540)

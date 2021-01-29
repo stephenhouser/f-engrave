@@ -2518,7 +2518,9 @@ class Application(Frame):
                               bg='white')
         self.Input.insert(END, self.default_text)
         scrollbar.config(command=self.Input.yview)
-        scrollbar.pack(side=RIGHT, fill=Y)
+        # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
+        # Causes Assertion error drawing CGRoundedRect on OSX 10.10, not on macOS 11 though
+        #scrollbar.pack(side=RIGHT, fill=Y)
         self.Input.pack(side=LEFT, fill=BOTH, expand=1)
         self.Input.bind("<Key>", self.Recalculate_RQD_Nocalc)
         ## self.master.unbind("<Alt>")
