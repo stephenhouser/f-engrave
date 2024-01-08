@@ -8,7 +8,7 @@
 cd -P -- $(dirname -- "$0")/
 
 # Set this to the version of python we want to use (via pyenv)
-PYTHON_VERSION=3.9.1
+PYTHON_VERSION=3.12.1
 
 # Call getopt to validate the provided input. 
 VENV_DIR=build_env.$$
@@ -78,7 +78,7 @@ then
 		LDFLAGS="-L/usr/local/opt/tcl-tk/lib" \
 		CPPFLAGS="-I/usr/local/opt/tcl-tk/include" \
 		PKG_CONFIG_PATH="/usr/local/opt/tcl-tk/lib/pkgconfig" \
-		PYTHON_CONFIGURE_OPTS="--with-tcltk-includes='-I$(brew --prefix tcl-tk)/include' --with-tcltk-libs='-L$(brew --prefix tcl-tk)/lib -ltcl8.6 -ltk8.6'" \
+		PYTHON_CONFIGURE_OPTS="--enable-framework --with-tcltk-includes='-I$(brew --prefix tcl-tk)/include' --with-tcltk-libs='-L$(brew --prefix tcl-tk)/lib -ltcl8.6 -ltk8.6'" \
 		pyenv install ${PYENV_PYTHON_VERSION}
 	check_failure "Failed to install Python ${PYTHON_VERSION}"
 

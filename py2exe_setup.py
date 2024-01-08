@@ -13,25 +13,45 @@ console_name = fileName+"_c"+fileExtension
 shutil.copyfile(script_name,console_name)
 
 setup(
-    options = {"py2exe": {"compressed": 0, "optimize": 0, } },
+    options = {
+		"py2exe": 
+		{
+            "dll_excludes": ["crypt32.dll","MSVCP90.dll"],
+			#%"excludes":  ["numpy"],
+            "compressed": 0, "optimize": 0,
+			"includes": ["numbers"],
+            #"includes": ["lxml.etree", "lxml._elementpath", "gzip"],
+		} 
+	},
     zipfile = None,
-    windows = [
-    {
-        "script": script_name,
-        "icon_resources":[(0,icon_name),(0,icon_name)]
-    }
-  ],
- )
+    windows=[
+		{
+			"script": script_name,
+			"icon_resources":[(0,icon_name),(1,icon_name)]
+		}
+	],
+)
+ 
  
 setup(
-    options = {"py2exe": {"compressed": 0, "optimize": 0, } },
+    options = {
+		"py2exe": 
+		{
+            "dll_excludes": ["crypt32.dll","MSVCP90.dll"],
+			#%"excludes":  ["numpy"],
+            "compressed": 0, "optimize": 0,
+			"includes": ["numbers"],
+            #"includes": ["lxml.etree", "lxml._elementpath", "gzip"],
+		} 
+	},
     zipfile = None,
     console=[
-        {
-            "script":console_name,
-            "icon_resources":[(0,icon_name),(0,icon_name)]
-            }
-    ]
+		{
+			"script": console_name,
+			"icon_resources":[(0,icon_name),(1,icon_name)]
+		}
+	],
 )
+
 os.remove(console_name)
 

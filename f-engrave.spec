@@ -9,7 +9,7 @@ block_cipher = None
 
 a = Analysis(['f-engrave.py'],
              pathex=['/Users/houser/Projects/f-engrave'],
-             binaries=[('TTF2CXF_STREAM/ttf2cxf_stream', '.'), ('/usr/local/bin/potrace', '.'), ('/usr/local/lib/libpotrace*.dylib', '.')],
+             binaries=[('TTF2CXF_STREAM/ttf2cxf_stream', '.'), ('/opt/homebrew/bin/potrace', '.'), ('/opt/homebrew/lib/libpotrace*.dylib', '.')],
              datas=[],
              hiddenimports=[],
              hookspath=[],
@@ -49,6 +49,6 @@ app = BUNDLE(exe,
 				'CFBundleIdentifier': 'com.scorchworks.f-engrave',
 				'CFBundleName': 'F-Engrave',
 				'CFBundleDisplayName': 'F-Engrave',
-				'CFBundleShortVersionString': '1.73'
+				'CFBundleShortVersionString': '1.75'
 				}
 			)

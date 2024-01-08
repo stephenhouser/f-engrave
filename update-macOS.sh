@@ -109,6 +109,9 @@ echo "Update version number in setup scripts..."
 sed -i.orig "s/version = .*/version = \"${VERSION}\"/" setup.py
 sed -i.orig "s/'CFBundleShortVersionString': '.*'/'CFBundleShortVersionString': '${VERSION}'/" f-engrave.spec
 
+echo "Pausing..."
+read 
+
 # Build macOS application
 echo "Build macOS Application..."
 ./build-macOS.sh -d || exit

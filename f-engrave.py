@@ -2,7 +2,7 @@
 """
     f-engrave G-Code Generator
     
-    Copyright (C) <2011-2019>  <Scorch>
+    Copyright (C) <2011-2021>  <Scorch>
     Source was used from the following works:
               engrave-11.py G-Code Generator -- Lawrence Glaister --
               GUI framework from arcbuddy.py -- John Thornton  --
@@ -284,10 +284,15 @@
 
     Version 1.73 - Made importing png images with clear backgrounds work better
                  - Added PNG and TIF to the image file types that show up by default
-    
+
+    Version 1.74 - Improved cleanup calculations using Pyclipper library
+                 - Added "L" loop cleanup option for both straight and v-bit
+                 - Started using PyPy for windows pre-compiled executable distribution 
+                 
+    Version 1.75 - Fixed module loading problem under Linux
     """
 
-version = '1.73'
+version = '1.75'
 #Setting QUIET to True will stop almost all console messages
 QUIET = False
 DEBUG = False
@@ -313,7 +318,6 @@ if VERSION < 3 and sys.version_info[1] < 6:
 try:
     import psyco
     psyco.full()
-    sys.stdout.write("(Psyco loaded: You have the fastest F-Engrave.)\n")
 except:
     pass
 
@@ -324,7 +328,7 @@ if PIL == True:
         Image.MAX_IMAGE_PIXELS = None
     except:
         PIL = False
-        sys.stdout.write("PIL No loaded.\n")
+        sys.stdout.write("PIL not loaded.\n")
 
 
 from math import *
@@ -334,8 +338,12 @@ import re
 import binascii
 import getopt
 from subprocess import Popen, PIPE
+if sys.platform == 'win32':
+    from subprocess import STARTUPINFO, STARTF_USESHOWWINDOW
+    
 import webbrowser
 import struct
+import pyclipper
 
 try:
     unichr
@@ -473,7 +481,9 @@ def parse(file,segarc):
     key = None
     stroke_list = []
     xmax, ymax = 0, 0
+        
     for text_in in file:
+        #print(text_in)
         text = text_in+" "
         # format for a typical letter (lower-case r):
         # #comment, with a blank line after it
@@ -488,8 +498,7 @@ def parse(file,segarc):
             font[key] = Character(key)
             font[key].stroke_list = stroke_list
             font[key].xmax = xmax
-
-        new_cmd = re.match('^\[(.*)\]\s', text)
+        new_cmd = re.match(r'^\[(.*)\]\s', text)
         if new_cmd: #new character
             key_tmp = new_cmd.group(1)
             if len(new_cmd.group(1)) == 1:
@@ -513,14 +522,14 @@ def parse(file,segarc):
             stroke_list = []
             xmax, ymax = 0, 0
 
-        line_cmd = re.match('^L (.*)', text)
+        line_cmd = re.match(r'^L (.*)', text)
         if line_cmd:
             coords = line_cmd.group(1)
             coords = [float(n) for n in coords.split(',')]
             stroke_list += [Line(coords)]
             xmax = max(xmax, coords[0], coords[2])
 
-        arc_cmd = re.match('^A (.*)', text)
+        arc_cmd = re.match(r'^A (.*)', text)
         if arc_cmd:
             coords = arc_cmd.group(1)
             coords = [float(n) for n in coords.split(',')]
@@ -1859,10 +1868,17 @@ class Application(Frame):
         #if PIL == False:
         #    fmessage("Python Imaging Library (PIL) was not found...Bummer")
         #    fmessage("    PIL enables more image file formats.")
+        
+            
 
         cmd = [ttf2cxf_stream(),"TEST","STDOUT"]
         try:
-            p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+            startupinfo=None
+            if sys.platform == 'win32':
+                # This startupinfo structure prevents a console window from popping up on Windows
+                startupinfo = STARTUPINFO()
+                startupinfo.dwFlags |= STARTF_USESHOWWINDOW
+            p = Popen(cmd, stdout=PIPE, stderr=PIPE, startupinfo=startupinfo)
             stdout, stderr = p.communicate()
             if VERSION == 3:
                 stdout = bytes.decode(stdout)
@@ -1877,7 +1893,12 @@ class Application(Frame):
 
         cmd = [potrace(),"-v"]
         try:
-            p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+            startupinfo=None
+            if sys.platform == 'win32':
+                # This startupinfo structure prevents a console window from popping up on Windows
+                startupinfo = STARTUPINFO()
+                startupinfo.dwFlags |= STARTF_USESHOWWINDOW
+            p = Popen(cmd, stdout=PIPE, stderr=PIPE, startupinfo=startupinfo)
             stdout, stderr = p.communicate()
             if VERSION == 3:
                 stdout = bytes.decode(stdout)
@@ -1938,9 +1959,11 @@ class Application(Frame):
         self.clean_P    = BooleanVar()
         self.clean_X    = BooleanVar()
         self.clean_Y    = BooleanVar()
+        self.clean_L    = BooleanVar()
         self.v_clean_P  = BooleanVar()
         self.v_clean_X  = BooleanVar()
         self.v_clean_Y  = BooleanVar()
+        self.v_clean_L  = BooleanVar()
 
         self.arc_fit    = StringVar()
         self.YSCALE     = StringVar()
@@ -2032,9 +2055,11 @@ class Application(Frame):
         self.clean_P.set(1)
         self.clean_X.set(1)
         self.clean_Y.set(0)
-        self.v_clean_P.set(0)
-        self.v_clean_Y.set(1)
-        self.v_clean_X.set(0)
+        self.clean_L.set(0)
+        self.v_clean_P.set(1)
+        self.v_clean_X.set(1)
+        self.v_clean_Y.set(0)
+        self.v_clean_L.set(0)
 
         self.arc_fit.set("none") #"none", "center", "radius"
         self.YSCALE.set("2.0")
@@ -2092,8 +2117,6 @@ class Application(Frame):
         self.svgcode = []
         self.coords  = []
         self.vcoords = []
-        self.clean_coords=[]
-        self.clean_segment=[]
         self.clean_coords_sort=[]
         self.v_clean_coords_sort=[]
 
@@ -2214,6 +2237,7 @@ class Application(Frame):
                     self.IMAGE_FILE = (self.HOME_DIR+"/None")
             if option in ('-t','--text'):
                 value = value.replace('|', '\n')
+                self.input_type.set("text")
 
                 self.default_text = value
             if option in ('-b','--batch'):
@@ -2898,8 +2922,8 @@ class Application(Frame):
             self.gcode.append('(fengrave_set clean_dia   %s )' %( self.clean_dia.get()  ))
             self.gcode.append('(fengrave_set clean_step  %s )' %( self.clean_step.get() ))
             self.gcode.append('(fengrave_set clean_v     %s )' %( self.clean_v.get()    ))
-            clean_out = ("%d,%d,%d,%d,%d,%d" %(self.clean_P.get(),self.clean_X.get(),self.clean_Y.get(),\
-                self.v_clean_P.get(),self.v_clean_Y.get(),self.v_clean_X.get()) )
+            clean_out = ("%d,%d,%d,%d,%d,%d,%d,%d" %(self.clean_P.get(),self.clean_X.get(),self.clean_Y.get(),\
+                self.v_clean_P.get(),self.v_clean_Y.get(),self.v_clean_X.get(),self.clean_L.get(),self.v_clean_L.get()) )
             self.gcode.append('(fengrave_set clean_paths  %s )' %( clean_out ))
             
             str_data=''
@@ -3620,7 +3644,7 @@ class Application(Frame):
     def WriteDXF(self,close_loops=False):
 
         if close_loops:
-            self.V_Carve_It(clean_flag=0,DXF_FLAG = close_loops)
+            self.V_Carve_It(DXF_FLAG = close_loops)
         
         dxf_code = []
         # Create a header section just in case the reading software needs it
@@ -3900,17 +3924,13 @@ class Application(Frame):
             pass
 
     def CLEAN_Recalculate_Click(self):
-        TSTART = time()
+        #TSTART = time()
+        self.clean_coords_sort=[]
+        self.v_clean_coords_sort=[]
         win_id=self.grab_current()
-        if self.clean_segment == []:
-            mess = "Calculate V-Carve must be executed\n"
-            mess = mess + "prior to Calculating Cleanup"
-            message_box("Cleanup Info",mess)
-        else:
-            stop = self.Clean_Calc_Click("straight")
-            if stop != 1:
-                self.Clean_Calc_Click("v-bit")
-            self.Plot_Data()
+        self.Clean_Calc_Click("straight")
+        self.Clean_Calc_Click("v-bit")
+        self.Plot_Data()
 
         try:
             win_id.withdraw()
@@ -3925,9 +3945,11 @@ class Application(Frame):
         if (self.clean_P.get() + \
             self.clean_X.get() + \
             self.clean_Y.get() + \
+            self.clean_L.get() + \
             self.v_clean_P.get() + \
+            self.v_clean_X.get() + \
             self.v_clean_Y.get() + \
-            self.v_clean_X.get()) != 0:
+            self.v_clean_L.get()) != 0:
             if self.clean_coords_sort == []:
                 mess = "Calculate Cleanup must be executed\n"
                 mess = mess + "prior to saving G-Code\n"
@@ -3953,9 +3975,11 @@ class Application(Frame):
         if (self.clean_P.get() + \
             self.clean_X.get() + \
             self.clean_Y.get() + \
+            self.clean_L.get() + \
             self.v_clean_P.get() + \
+            self.v_clean_X.get() + \
             self.v_clean_Y.get() + \
-            self.v_clean_X.get()) != 0:
+            self.v_clean_L.get()) != 0:
             if self.v_clean_coords_sort == []:
                 mess = "Calculate Cleanup must be executed\n"
                 mess = mess + "prior to saving V Cleanup G-Code\n"
@@ -4448,8 +4472,6 @@ class Application(Frame):
         return 0         # Value is a valid number
     def Entry_CLEAN_DIA_Callback(self, varName, index, mode):
         self.entry_set(self.Entry_CLEAN_DIA, self.Entry_CLEAN_DIA_Check() )
-        self.clean_coords=[]
-        self.v_clean_coords=[]
     #############################
     def Entry_STEP_OVER_Check(self):
         try:
@@ -4488,6 +4510,12 @@ class Application(Frame):
                 self.Label_Vbitdia.configure(text="Straight Bit Diameter")
             else:
                 pass
+            
+            v_flop    =  bool(self.v_flop.get())
+            if v_flop:
+                self.Checkbutton_clean_L.configure(state="disabled")
+            else:
+                self.Checkbutton_clean_L.configure(state="normal")
         except:
             pass
 
@@ -4628,16 +4656,6 @@ class Application(Frame):
         vcalc_status.title('Executing V-Carve')
         vcalc_status.iconname("F-Engrave")
 
-        try:
-            vcalc_status.iconbitmap(bitmap="@emblem64")
-        except:
-            try: #Attempt to create temporary icon bitmap file
-                temp_icon("f_engrave_icon")
-                vcalc_status.iconbitmap("@f_engrave_icon")
-                os.remove("f_engrave_icon")
-            except:
-                pass
-
         self.V_Carve_It()
         self.menu_View_Refresh()
         vcalc_status.grab_release()
@@ -4651,51 +4669,14 @@ class Application(Frame):
     def Clean_Calc_Click(self,bit_type="straight"):
         if (self.Check_All_Variables() > 0):
             return 1
-
-        if self.clean_coords == []:
-            vcalc_status = Toplevel(width=525, height=50)
-            # Use grab_set to prevent user input in the main window during calculations
-            vcalc_status.grab_set()
-
-            self.statusbar2 = Label(vcalc_status, textvariable=self.statusMessage, bd=1, relief=FLAT , height=1)
-            self.statusbar2.place(x=130+12+12, y=12, width=350, height=30)
-            self.statusMessage.set("Starting Clean Calculation")
-            self.statusbar.configure( bg = 'yellow' )
-
-            self.stop_button = Button(vcalc_status,text="Stop Calculation")
-            self.stop_button.place(x=12, y=12, width=130, height=30)
-            self.stop_button.bind("<ButtonRelease-1>", self.Stop_Click)
-
-            vcalc_status.resizable(0,0)
-            vcalc_status.title('Executing Clean Area Calculation')
-            vcalc_status.iconname("F-Engrave")
-
-            try:
-                vcalc_status.iconbitmap(bitmap="@emblem64")
-            except:
-                try: #Attempt to create temporary icon bitmap file
-                    temp_icon("f_engrave_icon")
-                    vcalc_status.iconbitmap("@f_engrave_icon")
-                    os.remove("f_engrave_icon")
-                except:
-                    pass
-            
-            clean_cut = 1
-            self.V_Carve_It(clean_cut)
-            vcalc_status.grab_release()
-            try:
-                vcalc_status.destroy()
-            except:
-                pass
-
-        self.Clean_Path_Calc(bit_type) 
-
-        if self.clean_coords == []:
+        self.Clean_Path_Calc(bit_type)
+        if self.clean_coords_sort == []:
             return 1
         else:
             return 0
 
     def Entry_recalc_var_Callback(self, varName, index, mode):
+        self.Entry_Bit_Shape_Check()
         self.Recalc_RQD()
 
     def Entry_units_var_Callback(self):
@@ -5039,6 +5020,9 @@ class Application(Frame):
                         self.v_clean_P.set(bool(clean_split[3]))
                         self.v_clean_Y.set(bool(clean_split[4]))
                         self.v_clean_X.set(bool(clean_split[5]))
+                    if len(clean_split) > 7:
+                        self.clean_L.set(bool(clean_split[6]))
+                        self.v_clean_L.set(bool(clean_split[7]))
                 elif "NGC_DIR"    in input_code:
                     NGC_DIR = (line[line.find("NGC_DIR"):].split("\042")[1])
                     self.NGC_FILE     = (NGC_DIR+"/None")
@@ -5341,7 +5325,8 @@ class Application(Frame):
         self.DoIt()
 
     def menu_Help_About(self):
-        about = "F-Engrave Version %s\n\n" %(version)
+        application="F-Engrave"
+        about = "%s Version %s\n\n" %(application,version)
         about = about + "By Scorch.\n"
         about = about + "\163\143\157\162\143\150\100\163\143\157\162"
         about = about + "\143\150\167\157\162\153\163\056\143\157\155\n"
@@ -5351,7 +5336,7 @@ class Application(Frame):
         except:
             python_version = ""
         about = about + "Python "+python_version+" (%d bit)" %(struct.calcsize("P") * 8)
-        message_box("About F-Engrave",about)
+        message_box("About %s" %(application),about)
 
     def menu_Help_Web(self):
         webbrowser.open_new(r"http://www.scorchworks.com/Fengrave/fengrave_doc.html")
@@ -5965,7 +5950,10 @@ class Application(Frame):
         TYPE=fileExtension.upper()
         if TYPE=='.CXF':
             try:
-                file = open(file_full)
+                if VERSION <3:
+                    file = open(file_full)
+                else:
+                    file = open(file_full,errors="ignore")
             except:
                 self.statusMessage.set("Unable to Open CXF File: %s" %(file_full))
                 self.statusbar.configure( bg = 'red' )
@@ -5984,7 +5972,12 @@ class Application(Frame):
                    "-s",self.segarc.get(),
                    file_full,"STDOUT"]
             try:
-                p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+                startupinfo=None
+                if sys.platform == 'win32':
+                    # This startupinfo structure prevents a console window from popping up on Windows
+                    startupinfo = STARTUPINFO()
+                    startupinfo.dwFlags |= STARTF_USESHOWWINDOW
+                p = Popen(cmd, stdout=PIPE, stderr=PIPE, startupinfo=startupinfo)
                 stdout, stderr = p.communicate()
                 if VERSION == 3:
                     file=bytes.decode(stdout).split("\n")
@@ -6062,7 +6055,12 @@ class Application(Frame):
                        "-n",
                        "-b","dxf",file_full,"-o","-"]
 
-                p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+                startupinfo=None
+                if sys.platform == 'win32':
+                    # This startupinfo structure prevents a console window from popping up on Windows
+                    startupinfo = STARTUPINFO()
+                    startupinfo.dwFlags |= STARTF_USESHOWWINDOW
+                p = Popen(cmd, stdout=PIPE, stderr=PIPE, startupinfo=startupinfo)
                 stdout, stderr = p.communicate()
                 if VERSION == 3:
                     fd=bytes.decode(stdout).split("\n")
@@ -6105,8 +6103,12 @@ class Application(Frame):
                            "-a",self.bmp_alphamax.get(),
                            "-n",
                            "-b","dxf",file_full_tmp,"-o","-"]
-
-                    p = Popen(cmd, stdout=PIPE, stderr=PIPE)
+                    startupinfo=None
+                    if sys.platform == 'win32':
+                        # This startupinfo structure prevents a console window from popping up on Windows
+                        startupinfo = STARTUPINFO()
+                        startupinfo.dwFlags |= STARTF_USESHOWWINDOW
+                    p = Popen(cmd, stdout=PIPE, stderr=PIPE, startupinfo=startupinfo)
                     stdout, stderr = p.communicate()
                     if VERSION == 3:
                         fd=bytes.decode(stdout).split("\n")
@@ -6279,7 +6281,7 @@ class Application(Frame):
                     rold=r
                     xold=x1
                     yold=y1
-
+                    
         ########################################
         # Plot cleanup data
         ########################################
@@ -6370,8 +6372,6 @@ class Application(Frame):
         self.svgcode = []
         self.coords  = []
         self.vcoords = []
-        self.clean_coords = []
-        self.clean_segment=[]
         self.clean_coords_sort=[]
         self.v_clean_coords_sort=[]
 
@@ -6919,7 +6919,7 @@ class Application(Frame):
         ################
 
     ##################################################
-    def record_v_carve_data(self,x1,y1,phi,rout,loop_cnt, clean_flag):
+    def record_v_carve_data(self,x1,y1,phi,rout,loop_cnt):
         rbit = self.calc_vbit_dia() / 2.0
         r_clean  = float(self.clean_dia.get())/2.0
         
@@ -6927,16 +6927,10 @@ class Application(Frame):
         xnormv = x1+Lx
         ynormv = y1+Ly
         need_clean = 0
-
-        if int(clean_flag) != 1:
-            self.vcoords.append([xnormv, ynormv, rout, loop_cnt]) 
-            if abs(rbit-rout) <= Zero:
-                need_clean = 1
-        else:
-            if rout >= rbit:
-                self.clean_coords.append([xnormv, ynormv, rout, loop_cnt])
-
-        return xnormv,ynormv,rout,need_clean
+        self.vcoords.append([xnormv, ynormv, rout, loop_cnt]) 
+        if abs(rbit-rout) <= Zero:
+            need_clean = 1
+        return xnormv,ynormv,rout
 
 
     #####################################################
@@ -6963,7 +6957,7 @@ class Application(Frame):
 
         return inside
 
-    def get_flop_staus(self,CLEAN_FLAG=False):
+    def get_flop_status(self,CLEAN_FLAG=False):
         v_flop    =  bool(self.v_flop.get())
 
         if (self.input_type.get() == "text") and (CLEAN_FLAG==False):
@@ -6976,7 +6970,7 @@ class Application(Frame):
         return v_flop
 
 
-    def V_Carve_It(self,clean_flag=0,DXF_FLAG = False):
+    def V_Carve_It(self,DXF_FLAG = False):
         global STOP_CALC
         timestamp = 0
         self.master.unbind("<Configure>")
@@ -6991,18 +6985,10 @@ class Application(Frame):
 
         if (self.Check_All_Variables() > 0):
             return
-        if (clean_flag != 1 ):
-            self.DoIt()
-            self.clean_coords = []
-            self.clean_coords_sort=[]
-            self.v_clean_coords_sort=[]
-            self.clean_segment=[]
-        elif self.clean_coords_sort != [] or self.v_clean_coords_sort != []:
-            # If there is existing cleanup data clear the screen before computing.
-            self.clean_coords = []
-            self.clean_coords_sort=[]
-            self.v_clean_coords_sort=[]
-            self.Plot_Data()
+
+        self.DoIt()
+        self.clean_coords_sort=[]
+        self.v_clean_coords_sort=[]
 
         if (not self.batch.get()):
             self.statusbar.configure( bg = 'yellow' )
@@ -7014,7 +7000,7 @@ class Application(Frame):
         #########################################
         if self.cut_type.get() == "v-carve" and self.fontdex.get() == False:
 
-            v_flop  = self.get_flop_staus()
+            v_flop  = self.get_flop_status()
             if (not self.batch.get()):
                 cszw = int(self.PreviewCanvas.cget("width"))
                 cszh = int(self.PreviewCanvas.cget("height"))
@@ -7035,10 +7021,7 @@ class Application(Frame):
             clean_dia = float(self.clean_dia.get())
             
             r_inlay_top = self.calc_r_inlay_top()
-            if (clean_flag != 1 ):
-                rmax = rbit
-            else:
-                rmax = rbit + clean_dia/2
+            rmax = rbit
             ###############################################################
             v_stp_crner = float(self.v_stp_crner.get())
             if self.inlay.get():
@@ -7061,7 +7044,7 @@ class Application(Frame):
                 dangle = 2.0
 
             ##VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
-            if ((self.input_type.get() == "image") and (clean_flag == 0)):
+            if self.input_type.get() == "image":
                 self.coords = self.sort_for_v_carve(self.coords)
 
             if (DXF_FLAG == True):
@@ -7246,11 +7229,7 @@ class Application(Frame):
                 x2 = self.coords[v_ind][i_x2]
                 y2 = self.coords[v_ind][i_y2]
                 LENGTH = sqrt( (x2-x1)*(x2-x1) + (y2-y1)*(y2-y1) )
-                if clean_flag == 1:
-                    if self.clean_segment[CUR_CNT] != 0:
-                        TOT_LENGTH = TOT_LENGTH + LENGTH
-                else:
-                    TOT_LENGTH = TOT_LENGTH + LENGTH
+                TOT_LENGTH = TOT_LENGTH + LENGTH
 
             CUR_LENGTH = 0.0
             MAX_CNT = len(self.coords)
@@ -7269,14 +7248,6 @@ class Application(Frame):
                 for line in range(len(self.coords)):
                     CUR_CNT=CUR_CNT+1
                     ####################################################
-                    if clean_flag == 0:
-                        self.clean_segment.append(0)
-                    elif len(self.clean_segment) != len(self.coords):
-                        fmessage("Need to Recalculate V-Carve Path")
-                        break
-                    else:
-                        calc_flag = self.clean_segment[CUR_CNT]
-                    
                     if (not self.batch.get()):
                         stamp=int(3*time()) #update every 1/3 of a second
                         if (stamp != timestamp):
@@ -7297,14 +7268,8 @@ class Application(Frame):
 
                     if STOP_CALC != 0:
                         STOP_CALC=0
-
-                        if (clean_flag != 1 ):
-                            self.vcoords = []
-                        else:
-                            self.clean_coords = []
-                            calc_flag = 0
-                        break
-
+                        self.vcoords = []
+                        
                     v_index = v_index + v_inc
                     New_Loop=0
                     x1 = self.coords[v_index][i_x1]
@@ -7359,7 +7324,7 @@ class Application(Frame):
                         d_seg_sin =   ytmp1/Ltmp
                         d_seg_cos =   xtmp1/Ltmp
                         delta = Get_Angle(d_seg_sin,d_seg_cos)
-                    if delta < float(v_drv_crner) and BIT_ANGLE !=0 and not_b_carve and clean_flag != 1:
+                    if delta < float(v_drv_crner) and BIT_ANGLE !=0 and not_b_carve:
                         #drive to corner
                         self.vcoords.append([x1, y1, 0.0, loop_cnt])
 
@@ -7376,9 +7341,8 @@ class Application(Frame):
                            sub_seg_sin = sin(sub_phi)
 
                            rout = self.find_max_circle(x1,y1,rmax,char_num,sub_seg_sin,sub_seg_cos,1,CHK_STRING)
-                           xv,yv,rv,clean_seg=self.record_v_carve_data(x1,y1,sub_phi,rout,loop_cnt,clean_flag)
-                           self.clean_segment[CUR_CNT] = bool(self.clean_segment[CUR_CNT]) or bool(clean_seg)
-                           if self.v_pplot.get() == 1 and (not self.batch.get()) and (clean_flag != 1 ):
+                           xv,yv,rv=self.record_v_carve_data(x1,y1,sub_phi,rout,loop_cnt)
+                           if self.v_pplot.get() == 1 and (not self.batch.get()):
                                self.Plot_Circ(xv,yv,midx,midy,cszw,cszh,PlotScale,"blue",rv,0)
                        #############################
                     ### end for linec in self.coords
@@ -7413,10 +7377,9 @@ class Application(Frame):
                         # Make the first cut drive down at an angle instead of straight down plunge
                         if cnt==0 and not_b_carve:
                             rout = 0.0
-                        xv,yv,rv,clean_seg=self.record_v_carve_data(xpt,ypt,phi2,rout,loop_cnt,clean_flag)
+                        xv,yv,rv=self.record_v_carve_data(xpt,ypt,phi2,rout,loop_cnt)
 
-                        self.clean_segment[CUR_CNT] = bool(self.clean_segment[CUR_CNT]) or bool(clean_seg)
-                        if self.v_pplot.get() == 1 and (not self.batch.get()) and (clean_flag != 1 ):
+                        if self.v_pplot.get() == 1 and (not self.batch.get()):
                             self.master.update_idletasks()
                             self.Plot_Circ(xv,yv,midx,midy,cszw,cszh,PlotScale,"blue",rv,0)
 
@@ -7436,7 +7399,7 @@ class Application(Frame):
                         d_seg_sin =   ytmp1/Ltmp
                         d_seg_cos =   xtmp1/Ltmp
                         delta = Get_Angle(d_seg_sin,d_seg_cos)
-                        if delta < v_drv_crner and clean_flag != 1:
+                        if delta < v_drv_crner:
                             #drive to corner
                             self.vcoords.append([xa, ya, 0.0, loop_cnt])
 
@@ -7453,17 +7416,15 @@ class Application(Frame):
                                 sub_seg_sin = sin(sub_phi)
 
                                 rout = self.find_max_circle(xa,ya,rmax,char_num,sub_seg_sin,sub_seg_cos,1,CHK_STRING)
-                                xv,yv,rv,clean_seg = self.record_v_carve_data(xa,ya,sub_phi,rout,loop_cnt,clean_flag)
-                                self.clean_segment[CUR_CNT] = bool(self.clean_segment[CUR_CNT]) or bool(clean_seg)
-                                if (self.v_pplot.get() == 1) and (not self.batch.get()) and (clean_flag != 1 ):
+                                xv,yv,rv = self.record_v_carve_data(xa,ya,sub_phi,rout,loop_cnt)
+                                if (self.v_pplot.get() == 1) and (not self.batch.get()):
                                     self.Plot_Circ(xv,yv,midx,midy,cszw,cszh,PlotScale,"blue",rv,0)
 
-                            xv,yv,rv,clean_seg = self.record_v_carve_data(xpta,ypta,phi2a,routa,loop_cnt,clean_flag)
-                            self.clean_segment[CUR_CNT] = bool(self.clean_segment[CUR_CNT]) or bool(clean_seg)
+                            xv,yv,rv = self.record_v_carve_data(xpta,ypta,phi2a,routa,loop_cnt)
                         else:
                             # Add closing segment
-                            xv,yv,rv,clean_seg = self.record_v_carve_data(xpta,ypta,phi2a,routa,loop_cnt,clean_flag)
-                            self.clean_segment[CUR_CNT] = bool(self.clean_segment[CUR_CNT]) or bool(clean_seg)
+                            xv,yv,rv = self.record_v_carve_data(xpta,ypta,phi2a,routa,loop_cnt)
+                            
 
                 #end for line in self coords
 
@@ -7852,241 +7813,86 @@ class Application(Frame):
         return temp_coords
     ### End sort_for_v_carve
 
-    def Find_Paths(self,check_coords_in,clean_dia,Radjust,clean_step,skip,direction):
-        check_coords=[]
-        
-        if direction == "Y":
-            cnt = -1
-            for line in check_coords_in:
-                cnt=cnt+1
-                XY=line
-                check_coords.append([XY[1],XY[0],XY[2]])
-        else:
-            check_coords=check_coords_in
 
-        minx_c=0
-        maxx_c=0
-        miny_c=0
-        maxy_c=0
-        if len(check_coords) > 0:
-            minx_c = check_coords[0][0]-check_coords[0][2]
-            maxx_c = check_coords[0][0]+check_coords[0][2]
-            miny_c = check_coords[0][1]-check_coords[0][2]
-            maxy_c = check_coords[0][1]+check_coords[0][2]
-        for line in check_coords:
-            XY    = line
-            minx_c = min(minx_c, XY[0]-XY[2] )
-            maxx_c = max(maxx_c, XY[0]+XY[2] )
-            miny_c = min(miny_c, XY[1]-XY[2] )
-            maxy_c = max(maxy_c, XY[1]+XY[2] )
-
-          
-
-        DX = clean_dia*clean_step
-        DY = DX
-        Xclean_coords=[]
-        Xclean_coords_short=[]
-
-        if direction != "None":
-            #########################################################################
-            # Find ends of horizontal lines for carving clean-up
-            #########################################################################
-            loop_cnt=0
-            Y = miny_c
-            line_cnt = skip-1
-            while Y <= maxy_c:
-                line_cnt = line_cnt+1  
-                X  = minx_c
-                x1 = X
-                x2 = X
-                x1_old = x1
-                x2_old = x2
-
-                # Find relevant clean_coord_data
-                ################################
-                temp_coords=[]
-                for line in check_coords:
-                    XY=line
-                    if Y < XY[1]+XY[2] and Y > XY[1]-XY[2]:
-                        temp_coords.append(XY)
-                ################################
-
-                while X <= maxx_c:
-                    for line in temp_coords:
-                        XY=line
-                        h = XY[0]
-                        k = XY[1]
-                        R = XY[2]-Radjust
-                        dist=sqrt((X-h)**2 + (Y-k)**2)
-                        if dist <= R:
-                            Root = sqrt(R**2 - (Y-k)**2)
-                            XL = h-Root
-                            XR = h+Root
-                            if XL < x1:
-                                x1 = XL
-                            if XR > x2:
-                                x2 = XR
-                    if x1==x2:
-                        X  = X+DX
-                        x1 = X
-                        x2 = X
-                    elif (x1 == x1_old) and (x2 == x2_old):
-                        loop_cnt=loop_cnt+1
-                        Xclean_coords.append([x1,Y,loop_cnt])
-                        Xclean_coords.append([x2,Y,loop_cnt])
-                        if line_cnt == skip:
-                            Xclean_coords_short.append([x1,Y,loop_cnt])
-                            Xclean_coords_short.append([x2,Y,loop_cnt])
-
-                        X  = X+DX
-                        x1 = X
-                        x2 = X
-                    else:
-                        X = x2
-                    x1_old = x1
-                    x2_old = x2
-                if line_cnt == skip:
-                    line_cnt = 0
-                Y=Y+DY
-            #########################################################################
-
-        if True == False:
-            #########################################################################
-            # loop over circles recording "pixels" that are covered by the circles
-            #########################################################################
-            loop_cnt=0
-            Y = miny_c
-            while Y <= maxy_c:
-                line_cnt = line_cnt+1  
-                X  = minx_c
-                x1 = X
-                x2 = X
-                x1_old = x1
-                x2_old = x2
-
-                # Find relevant clean_coord_data
-                ################################
-                temp_coords=[]
-                for line in check_coords:
-                    XY=line
-                    if Y < XY[1]+XY[2] and Y > XY[1]-XY[2]:
-                        temp_coords.append(XY)
-                ################################
-
-                while X <= maxx_c:
-                    for line in temp_coords:
-                        XY=line
-                        h = XY[0]
-                        k = XY[1]
-                        R = XY[2]-Radjust
-                        dist=sqrt((X-h)**2 + (Y-k)**2)
-                        if dist <= R:
-                            Root = sqrt(R**2 - (Y-k)**2)
-                            XL = h-Root
-                            XR = h+Root
-                            if XL < x1:
-                                x1 = XL
-                            if XR > x2:
-                                x2 = XR
-                    if x1==x2:
-                        X  = X+DX
-                        x1 = X
-                        x2 = X
-                    elif (x1 == x1_old) and (x2 == x2_old):
-                        loop_cnt=loop_cnt+1
-                        Xclean_coords.append([x1,Y,loop_cnt])
-                        Xclean_coords.append([x2,Y,loop_cnt])
-                        if line_cnt == skip:
-                            Xclean_coords_short.append([x1,Y,loop_cnt])
-                            Xclean_coords_short.append([x2,Y,loop_cnt])
-
-                        X  = X+DX
-                        x1 = X
-                        x2 = X
-                    else:
-                        X = x2
-                    x1_old = x1
-                    x2_old = x2
-                if line_cnt == skip:
-                    line_cnt = 0
-                Y=Y+DY
-            #########################################################################
-
-
-        Xclean_coords_out=[]
-        Xclean_coords_short_out=[]
-        if direction == "Y":
-
-            cnt = -1
-            for line in Xclean_coords:
-                cnt=cnt+1
-                XY=line
-                Xclean_coords_out.append([XY[1],XY[0],XY[2]])
-
-            cnt = -1
-            for line in Xclean_coords_short:
-                cnt=cnt+1
-                XY=line
-                Xclean_coords_short_out.append([XY[1],XY[0],XY[2]])
-        else:
-            Xclean_coords_out=Xclean_coords
-            Xclean_coords_short_out=Xclean_coords_short
-
-        return Xclean_coords_out,Xclean_coords_short_out
-
-    def Clean_coords_to_Path_coords(self,clean_coords_in):
+    def pyclipper_coords2ecoords(self,pyclip_coords,clean_dia=1,Ln_last=0):
+        #P_coords.append([x,y,clean_dia/2,Ln_last])
         path_coords_out=[]
+        for loop in pyclip_coords:
+            Ln_last=Ln_last+1
+            for i in range(-1,len(loop)):
+                path_coords_out.append([loop[i-1][0]/10000.0, loop[i-1][1]/10000.0,
+                                        clean_dia/2, Ln_last])
+        return path_coords_out
+
+
+    def pyclipper_coords_to_Path_coords(self,pyclip_coords):
         # Clean coords format ([xnormv, ynormv, rout, loop_cnt]) - self.clean_coords
         # Path coords format  ([x1,y1,x2,y2,line_cnt,char_cnt])  - self.coords
-        for i in range(1,len(clean_coords_in)):
-            if (clean_coords_in[i][3] == clean_coords_in[i-1][3]):
-                path_coords_out.append( [   clean_coords_in[i-1][0],
-                                            clean_coords_in[i-1][1],
-                                            clean_coords_in[i  ][0],
-                                            clean_coords_in[i  ][1],
-                                            0,
-                                            0])
+        path_coords_out=[]
+        for loop in pyclip_coords:
+            for i in range(len(loop)):
+                path_coords_out.append([loop[i-1][0]/10000.0, loop[i-1][1]/10000.0,
+                                        loop[i  ][0]/10000.0, loop[i  ][1]/10000.0, 0, 0])
         return path_coords_out
+
     
     def Clean_Path_Calc(self,bit_type="straight"):
-        v_flop  = self.get_flop_staus(CLEAN_FLAG=True)
+        v_flop  = self.get_flop_status(CLEAN_FLAG=True)
+        edge=0
         if v_flop:
-            edge=1
+            offset_sign =-1
+            if bit_type=="straight":
+                edge=1
         else:
-            edge=0
-        loop_cnt     = 0
-        loop_cnt_out = 0
-        #######################################
-        #reorganize clean_coords              #
-        #######################################
+            offset_sign = 1
+        ######################################################
+        ### Create Paths in format suitable for Pyclipper  ###
+        ######################################################
+        clip_coords=self.sort_for_v_carve(self.coords)
+        pc_path_list = []
+        pyclip_path  = []
+        loop_prev = 0
+        for iii in range(0,len(clip_coords)):            
+            loop = clip_coords[iii][4]
+            if loop!=loop_prev and iii!=0:
+                pc_path_list.append(pyclip_path)
+                pyclip_path = []
+            pyclip_path.append([int(clip_coords[iii][0]*10000),int(clip_coords[iii][1]*10000)])
+            pyclip_path.append([int(clip_coords[iii][2]*10000),int(clip_coords[iii][3]*10000)])
+            loop_prev=loop
+        if pyclip_path!=[]:
+            pc_path_list.append(pyclip_path)
+        # The next three lines put the path into a pyclipper instance so we can operate on it 
+        pco = pyclipper.PyclipperOffset()
+        for path in pc_path_list:
+            pco.AddPath(path, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)            
+        ##########################################################################################
+            
+        ########################################
+        # Reorganize clean_coords              #
+        ########################################
         if bit_type=="straight":
-            test_clean = self.clean_P.get()   + self.clean_X.get()   + self.clean_Y.get()
+            test_clean = self.clean_P.get()   + self.clean_X.get()   + self.clean_Y.get() + self.clean_L.get()
         else:
-            test_clean = self.v_clean_P.get() + self.v_clean_Y.get() + self.v_clean_X.get()
+            test_clean = self.v_clean_P.get() + self.v_clean_Y.get() + self.v_clean_X.get() + self.v_clean_L.get()
 
         rbit = self.calc_vbit_dia() / 2.0
-        check_coords=[]
-       
+        
         self.statusbar.configure( bg = 'yellow' )
         if bit_type=="straight":
             self.statusMessage.set('Calculating Cleanup Cut Paths')
             self.master.update()
-            self.clean_coords_sort   = []
-            clean_dia = float(self.clean_dia.get()) #diameter of cleanup bit
+            clean_dia = float(self.clean_dia.get()) #diameter of cleanup bit 
             v_step_len = float(self.v_step_len.get()) 
             step_over = float(self.clean_step.get()) #percent of cut DIA
             clean_step = step_over/100.0
             Radjust   = clean_dia/2.0 + rbit
-            check_coords = self.clean_coords
 
         elif bit_type == "v-bit":
             self.statusMessage.set('Calculating V-Bit Cleanup Cut Paths')
             skip = 1
             clean_step = 1.0
-            
             self.master.update()
-            self.v_clean_coords_sort = []
-
             clean_dia  = float(self.clean_v.get())  #effective diameter of clean-up v-bit
             if float(clean_dia) < Zero:
                 return
@@ -8095,17 +7901,10 @@ class Application(Frame):
             offset = clean_dia/4.0 
             Radjust   =  rbit + offset
             flat_clean_r = float(self.clean_dia.get())/2.0
-            for line in self.clean_coords:
-                XY    = line
-                R = XY[2] - Radjust
-                if (R > 0.0) and (R < flat_clean_r - offset - Zero):
-                    check_coords.append(XY)
 
-        clean_coords_out=[]
-        if self.cut_type.get() == "v-carve" and len(self.clean_coords) > 1 and test_clean > 0:
+        if self.cut_type.get() == "v-carve"  and test_clean > 0:
             DX = clean_dia*clean_step
             DY = DX
-            
             if bit_type=="straight":
                 MAXD=clean_dia
             else:
@@ -8114,212 +7913,170 @@ class Application(Frame):
             Xclean_coords=[]
             Yclean_coords=[]
             clean_coords_out=[]
-            
-            ## NEW STUFF FOR STRAIGHT BIT ##
+            loop_cnt = 0
+            ##############################################
+            ## START STRAIGHT BIT CLEANUP CALCULATIONS  ##
+            ##############################################
             if bit_type=="straight":
-                MaxLoop=0
-                clean_dia  = float(self.clean_dia.get()) #diameter of cleanup bit
-                step_over  = float(self.clean_step.get()) #percent of cut DIA
-                clean_step = step_over/100.0
-                Rperimeter = rbit + (clean_dia/2.0)
-                
-                ###################################################
-                # Extract straight bit points from clean_coords
-                ###################################################
-                check_coords=[]
-                junk=-1
-                for line in self.clean_coords:
-                    XY = line
-                    R  = XY[2]
-                    if (R >= Rperimeter-Zero):
-                        check_coords.append(XY)
-                    elif (len(check_coords)>0):
-                        junk=junk-1
-                        check_coords.append([None, None, None, junk])
-                        #check_coords[len(check_coords)-1][3]=junk
-                ###################################################
-                # Calculate Straight bit "Perimeter" tool path ####
-                ###################################################
-                P_coords = []
-                loop_coords = self.Clean_coords_to_Path_coords(check_coords)
-                loop_coords = self.sort_for_v_carve(loop_coords,LN_START=0)
+                # Offset with pyclipper to find the area that needs to be cleaned
+                if len(clip_coords)>0:
+                    offset_val = -Radjust*10000.0
+                    clean_loops = pco.Execute(offset_sign*offset_val)
+                P_coords=self.pyclipper_coords2ecoords(clean_loops,clean_dia=clean_dia,Ln_last=loop_cnt)
+                loop_coords = self.pyclipper_coords_to_Path_coords(clean_loops)
 
-                #######################
-                #Line fit loop_coords
-                #######################
-                P_coords=[]
-                if loop_coords:
-                    loop_coords_lin=[]
-                    cuts=[]
-                    Ln_last = loop_coords[0][4]
-                    for i in range(len(loop_coords)):
-                        Ln = loop_coords[i][4]
-                        if (Ln != Ln_last):
-                            for move, (x, y, z), cent in douglas(cuts, tolerance=0.0001, plane=None):
-                                P_coords.append([x,y,clean_dia/2,Ln_last])
-                            cuts=[]
-                        cuts.append( [loop_coords[i][0],loop_coords[i][1],0] )
-                        cuts.append( [loop_coords[i][2],loop_coords[i][3],0] )
-                        Ln_last = Ln
-                    if cuts:
-                        for move, (x, y, z), cent in douglas(cuts, tolerance=0.0001, plane=None):
-                            P_coords.append([x,y,clean_dia/2,Ln_last])
-                ##################### 
-                loop_coords = self.Clean_coords_to_Path_coords(P_coords)
-                # Find min/max values for x,y and the highest loop number
-                x_pmin= 99999
-                x_pmax=-99999
-                y_pmin= 99999
-                y_pmax=-99999
-                for i in range(len(P_coords)):
-                    MaxLoop= max(MaxLoop,P_coords[i][3])
-                    x_pmin = min(x_pmin, P_coords[i][0])
-                    x_pmax = max(x_pmax, P_coords[i][0])
-                    y_pmin = min(y_pmin, P_coords[i][1])
-                    y_pmax = max(y_pmax, P_coords[i][1])
-                loop_cnt_out = loop_cnt_out + MaxLoop
-
-                if (self.clean_P.get() == 1):
+                if ((self.clean_P.get() == 1) or ((self.clean_L.get() == 1) and (not v_flop))):
                     clean_coords_out = P_coords
-
-                offset = DX/2.0
-                if (self.clean_X.get() == 1):                    
-                    y_pmax = y_pmax-offset
-                    y_pmin = y_pmin+offset
-                    Ysize = y_pmax - y_pmin
-                    Ysteps = ceil( Ysize /(clean_dia*clean_step) )
-                    if (Ysteps>0):
-                        dY = Ysize / Ysteps
-                        for iY in range(0,int(Ysteps+1)):
-                            y = y_pmin + iY/Ysteps * (y_pmax-y_pmin)
-                            intXYlist=[]
-                            intXYlist = self.DetectIntersect([x_pmin-1,y],[x_pmax+1,y],loop_coords,XY_T_F=True)
-                            intXY_len = len(intXYlist)
-
-                            for i in range(edge,intXY_len-1-edge,2):
-                                x1 = intXYlist[i][0]
-                                y1 = intXYlist[i][1]
-                                x2 = intXYlist[i+1][0]
-                                y2 = intXYlist[i+1][1]
-                                if ((x2-x1) > offset*2):
-                                    loop_cnt=loop_cnt+1
-                                    Xclean_coords.append([x1+offset,y1,loop_cnt])
-                                    Xclean_coords.append([x2-offset,y2,loop_cnt])
-                            
-                if (self.clean_Y.get() == 1):                    
-                    x_pmax = x_pmax-offset
-                    x_pmin = x_pmin+offset
-                    Xsize = x_pmax - x_pmin
-                    Xsteps = ceil( Xsize /(clean_dia*clean_step) )
-                    if (Xsteps>0):
-                        dX = Xsize / Xsteps
-                        for iX in range(0,int(Xsteps+1)):
-                            x = x_pmin + iX/Xsteps * (x_pmax-x_pmin)
-                            intXYlist=[]
-                            intXYlist = self.DetectIntersect([x,y_pmin-1],[x,y_pmax+1],loop_coords,XY_T_F=True)
-                            intXY_len = len(intXYlist)
-                            for i in range(edge,intXY_len-1-edge,2):
-                                x1 = intXYlist[i][0]
-                                y1 = intXYlist[i][1]
-                                x2 = intXYlist[i+1][0]
-                                y2 = intXYlist[i+1][1]
-                                if ((y2-y1) > offset*2):
-                                    loop_cnt=loop_cnt+1
-                                    Yclean_coords.append([x1,y1+offset,loop_cnt])
-                                    Yclean_coords.append([x2,y2-offset,loop_cnt])                
-            ## END NEW STUFF FOR STRAIGHT BIT ##
+                    if len(clean_coords_out)>0:
+                        loop_cnt = clean_coords_out[-1][3]
 
             #######################################
             ## START V-BIT CLEANUP CALCULATIONS  ##
             #######################################
             elif bit_type == "v-bit":
-                #########################################################################
-                # Find ends of horizontal lines for carving clean-up
-                #########################################################################
-                Xclean_perimeter,Xclean_coords = self.Find_Paths(check_coords,clean_dia,Radjust,clean_step,skip,"X")
+                # Offset with pyclipper to find the area that needs to be cleaned
+                if len(clip_coords)>0:
+                    # Adjust loops out by Radjust_Step01 to match the tool path of full depth cut
+                    Radjust_Step01 = float(self.clean_dia.get())/2.0 + rbit
+                    offset_val     = -Radjust_Step01*10000.0
+                    clean_loops    = pco.Execute(offset_sign*offset_val)
 
-                #########################################################################
-                # Find ends of Vertical lines for carving clean-up
-                #########################################################################
-                Yclean_perimeter,Yclean_coords = self.Find_Paths(check_coords,clean_dia,Radjust,clean_step,skip,"Y")
+                    pco_Step02 = pyclipper.PyclipperOffset()
+                    for path in clean_loops:
+                        pco_Step02.AddPath(path, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+                    # Adjust loops out by Radjust_Step21 to match the max extent the straigh tool reached (plus a little)
+                    Radjust_Step02 = float(self.clean_dia.get())/2.0 + clean_dia/4.0
+                    clean_loops = pco_Step02.Execute(offset_sign*Radjust_Step02*10000)
 
-                #######################################################
-                # Find new order based on distance                    #
-                #######################################################
-                if (self.v_clean_P.get() == 1):
-                    ########################################
-                    ecoords=[]
-                    for line in Xclean_perimeter:
-                        XY=line
-                        ecoords.append([XY[0],XY[1]])
+                    # Make loops that are on the toolpath of full depth cuts (minus a little)
+                    Radjust_Step09   = -rbit - clean_dia/4.0
+                    outside_loops = pco.Execute(offset_sign*Radjust_Step09*10000)
 
-                    for line in Yclean_perimeter:
-                        XY=line
-                        ecoords.append([XY[0],XY[1]])
+                    pc_STEP03 = pyclipper.Pyclipper()
+                    if v_flop:
+                        for path in outside_loops:
+                            pc_STEP03.AddPath(path, pyclipper.PT_CLIP, True)
+                        for path in clean_loops:
+                            pc_STEP03.AddPath( path, pyclipper.PT_SUBJECT, True)
+                    else:    
+                        for path in clean_loops:
+                            pc_STEP03.AddPath(path, pyclipper.PT_CLIP, True)
+                        for path in outside_loops:
+                            pc_STEP03.AddPath( path, pyclipper.PT_SUBJECT, True)
 
-                    ################
-                    ###   ends   ###
-                    ################
-                    Lbeg=[]
-                    for i in range(1,len(ecoords)):
-                        Lbeg.append(i)
+                    clean_loops = pc_STEP03.Execute(pyclipper.CT_DIFFERENCE, pyclipper.PFT_EVENODD, pyclipper.PFT_EVENODD)
+                    #print(pc_STEP03.GetBounds())
+                #######################################################################                
+                P_coords    = self.pyclipper_coords2ecoords(clean_loops,clean_dia=clean_dia,Ln_last=loop_cnt)
+                loop_coords = self.pyclipper_coords_to_Path_coords(clean_loops)
 
-                    ########################################
-                    order_out = []
-                    if len(ecoords)>0:
-                        order_out.append(Lbeg[0])
-                    inext = 0
-                    total=len(Lbeg)
-                    for i in range(total-1):
-                        ii=Lbeg.pop(inext)
-                        Xcur = ecoords[ii][0]
-                        Ycur = ecoords[ii][1]
-                        dx = Xcur - ecoords[ Lbeg[0] ][0]
-                        dy = Ycur - ecoords[ Lbeg[0] ][1]
-                        min_dist = dx*dx + dy*dy
-
-                        inext=0
-                        for j in range(1,len(Lbeg)):
-                            dx = Xcur - ecoords[ Lbeg[j] ][0]
-                            dy = Ycur - ecoords[ Lbeg[j] ][1]
-                            dist = dx*dx + dy*dy
-                            if dist < min_dist:
-                                min_dist=dist
-                                inext=j
-                        order_out.append(Lbeg[inext])
-                    ###########################################################
-                    x_start_loop = -8888
-                    y_start_loop = -8888
-                    x_old=-999
-                    y_old=-999
-                    for i in order_out:
-                        x1   = ecoords[i][0]
-                        y1   = ecoords[i][1]
-                        dx = x1-x_old
-                        dy = y1-y_old
-                        dist = sqrt(dx*dx + dy*dy)
-                        if dist > MAXD:
-                            dx = x_start_loop-x_old
-                            dy = y_start_loop-y_old
-                            dist = sqrt(dx*dx + dy*dy)
-                            # Fully close loop if the current point is close enough to the start of the loop
-                            if dist < MAXD: 
-                                clean_coords_out.append([x_start_loop,y_start_loop,clean_dia/2,loop_cnt_out])
-                            loop_cnt_out=loop_cnt_out+1
-                            x_start_loop=x1
-                            y_start_loop=y1
-                        clean_coords_out.append([x1,y1,clean_dia/2,loop_cnt_out])
-                        x_old=x1
-                        y_old=y1
+                if ((self.v_clean_P.get() == 1) or (self.v_clean_L.get() == 1)):
+                    clean_coords_out = P_coords
+                    if len(clean_coords_out)>0:
+                        loop_cnt = clean_coords_out[-1][3]
+                    
             #####################################
             ## END V-BIT CLEANUP CALCULATIONS  ##
             #####################################
 
+            ################################################################################
+            # Find min/max values for x,y and the highest loop number
+            x_pmin= 99999
+            x_pmax=-99999
+            y_pmin= 99999
+            y_pmax=-99999
+            MaxLoop=-1
+            for i in range(len(P_coords)):
+                MaxLoop= max(MaxLoop,P_coords[i][3])
+                x_pmin = min(x_pmin, P_coords[i][0])
+                x_pmax = max(x_pmax, P_coords[i][0])
+                y_pmin = min(y_pmin, P_coords[i][1])
+                y_pmax = max(y_pmax, P_coords[i][1])
+
+            offset = DX/2.0
             ###########################################################
-            # Now deal with the horizontal line cuts
+            ####    Create the horizontal line cuts                 ### 
             ###########################################################
-            if (self.clean_X.get()   == 1 and bit_type != "v-bit") or \
-               (self.v_clean_X.get() == 1 and bit_type == "v-bit"):
+            if ((self.clean_X.get()   == 1 and bit_type=="straight") or
+                (self.v_clean_X.get() == 1 and bit_type == "v-bit" )):            
+                y_pmax_x = y_pmax-offset
+                y_pmin_x = y_pmin+offset
+                Ysize = y_pmax_x - y_pmin_x
+                Ysteps = ceil( Ysize /(clean_dia*clean_step) )
+                if (Ysteps>0):
+                    dY = Ysize / Ysteps
+                    for iY in range(0,int(Ysteps+1)):
+                        y = y_pmin_x + iY/Ysteps * (y_pmax_x-y_pmin_x)
+                        intXYlist=[]
+                        intXYlist = self.DetectIntersect([x_pmin-1,y],[x_pmax+1,y],loop_coords,XY_T_F=True)
+                        intXY_len = len(intXYlist)
+
+                        for i in range(edge,intXY_len-1-edge,2):
+                            x1 = intXYlist[i][0]
+                            y1 = intXYlist[i][1]
+                            x2 = intXYlist[i+1][0]
+                            y2 = intXYlist[i+1][1]
+                            if ((x2-x1) > offset*2):
+                                loop_cnt=loop_cnt+1
+                                Xclean_coords.append([x1+offset,y1,loop_cnt])
+                                Xclean_coords.append([x2-offset,y2,loop_cnt])
+
+            ###########################################################
+            ####    Create the vertical line cuts                   ### 
+            ###########################################################
+            if ((self.clean_Y.get()   == 1 and bit_type=="straight") or
+                (self.v_clean_Y.get() == 1 and bit_type == "v-bit" )):                    
+                x_pmax_y = x_pmax-offset
+                x_pmin_y = x_pmin+offset
+                Xsize = x_pmax_y - x_pmin_y
+                Xsteps = ceil( Xsize /(clean_dia*clean_step) )
+                if (Xsteps>0):
+                    dX = Xsize / Xsteps
+                    for iX in range(0,int(Xsteps+1)):
+                        x = x_pmin_y + iX/Xsteps * (x_pmax_y-x_pmin_y)
+                        intXYlist=[]
+                        intXYlist = self.DetectIntersect([x,y_pmin-1],[x,y_pmax+1],loop_coords,XY_T_F=True)
+                        intXY_len = len(intXYlist)
+                        for i in range(edge,intXY_len-1-edge,2):
+                            x1 = intXYlist[i][0]
+                            y1 = intXYlist[i][1]
+                            x2 = intXYlist[i+1][0]
+                            y2 = intXYlist[i+1][1]
+                            if ((y2-y1) > offset*2):
+                                loop_cnt=loop_cnt+1
+                                Yclean_coords.append([x1,y1+offset,loop_cnt])
+                                Yclean_coords.append([x2,y2-offset,loop_cnt])
+
+            ##################################################
+            ####    Create the loop cuts                   ### 
+            ##################################################
+            if ( (((self.clean_L.get() == 1) and (not v_flop)) and bit_type=="straight") or
+                (self.v_clean_L.get() == 1 and bit_type == "v-bit" )):
+                pco_loop_clean = pyclipper.PyclipperOffset()
+                for path in clean_loops:
+                    pco_loop_clean.AddPath(path, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+                
+                if len(clip_coords)>0:
+                    DL = clean_dia*clean_step/2
+                    offset_val = 0
+                    while True:
+                        offset_val=offset_val-DL*10000.0
+                        offset_coords = pco_loop_clean.Execute(offset_val)
+                        if len(offset_coords)>0:
+                            P_coords  = self.pyclipper_coords2ecoords(offset_coords,clean_dia=clean_dia,Ln_last=loop_cnt)
+                            clean_coords_out.extend(P_coords)
+                            if len(clean_coords_out)>0:
+                                loop_cnt = clean_coords_out[-1][3]
+                        if len(offset_coords)==0:
+                            break                                
+            ################################################################################
+
+            ###########################################################
+            ####    Now deal with the horizontal line cuts          ### 
+            ###########################################################
+            if ((self.clean_X.get()   == 1 and bit_type=="straight") or
+                (self.v_clean_X.get() == 1 and bit_type == "v-bit" )):
+                loop_cnt = loop_cnt+1
                 x_old=-999
                 y_old=-999
                 order_out=self.Sort_Paths(Xclean_coords)
@@ -8338,19 +8095,22 @@ class Application(Frame):
                         dy = y1-y_old
                         dist = sqrt(dx*dx + dy*dy)
                         if dist > MAXD and loop != loop_old:
-                            loop_cnt_out=loop_cnt_out+1
-                        clean_coords_out.append([x1,y1,clean_dia/2,loop_cnt_out])
+                            loop_cnt=loop_cnt+1
+                        clean_coords_out.append([x1,y1,clean_dia/2,loop_cnt])
                         x_old=x1
                         y_old=y1
                         loop_old=loop
+                if len(clean_coords_out)>0:
+                    MaxLoop = clean_coords_out[-1][3]
 
             ###########################################################
-            # Now deal with the vertical line cuts
+            #### Now deal with the vertical line cuts              ####
             ###########################################################
-            if (self.clean_Y.get()   == 1 and bit_type != "v-bit") or \
-               (self.v_clean_Y.get() == 1 and bit_type == "v-bit"):
+            if ((self.clean_Y.get()   == 1 and bit_type=="straight") or
+                (self.v_clean_Y.get() == 1 and bit_type == "v-bit" )):  
                 x_old=-999
                 y_old=-999
+                loop_cnt = loop_cnt+1
                 order_out=self.Sort_Paths(Yclean_coords)
                 loop_old=-1
                 for line in order_out:
@@ -8367,11 +8127,14 @@ class Application(Frame):
                         dy = y1-y_old
                         dist = sqrt(dx*dx + dy*dy)
                         if dist > MAXD and loop != loop_old:
-                            loop_cnt_out=loop_cnt_out+1
-                        clean_coords_out.append([x1,y1,clean_dia/2,loop_cnt_out])
+                            loop_cnt=loop_cnt+1
+                        clean_coords_out.append([x1,y1,clean_dia/2,loop_cnt])
                         x_old=x1
                         y_old=y1
                         loop_old=loop
+                if len(clean_coords_out)>0:
+                    MaxLoop = clean_coords_out[-1][3]
+            ###########################################################
                         
             self.entry_set(self.Entry_CLEAN_DIA, self.Entry_CLEAN_DIA_Check()     ,1)
             self.entry_set(self.Entry_STEP_OVER, self.Entry_STEP_OVER_Check()     ,1)
@@ -8386,7 +8149,8 @@ class Application(Frame):
         self.master.update_idletasks()
     #######################################
     #End Reorganize                       #
-    #######################################
+    #######################################                
+
 
 
     #####################################################
@@ -8557,16 +8321,6 @@ class Application(Frame):
         self.PBM_Close.place(x=Xbut, y=Ybut, width=130, height=30, anchor="w")
         self.PBM_Close.bind("<ButtonRelease-1>", self.Close_Current_Window_Click)
 
-        try:
-            pbm_settings.iconbitmap(bitmap="@emblem64")
-        except:
-            try: #Attempt to create temporary icon bitmap file
-                temp_icon("f_engrave_icon")
-                pbm_settings.iconbitmap("@f_engrave_icon")
-                os.remove("f_engrave_icon")
-            except:
-                pass
-
 ################################################################################
 #                         General Settings Window                              #
 ################################################################################
@@ -8576,17 +8330,6 @@ class Application(Frame):
         gen_settings.resizable(0,0)
         gen_settings.title('Settings')
         gen_settings.iconname("Settings")
-
-        try:
-            gen_settings.iconbitmap(bitmap="@emblem64")
-        except:
-            try: #Attempt to create temporary icon bitmap file
-                temp_icon("f_engrave_icon")
-                gen_settings.iconbitmap("@f_engrave_icon")
-                os.remove("f_engrave_icon")
-            except:
-                pass
-
             
         D_Yloc  = 6
         D_dY = 24
@@ -8799,18 +8542,6 @@ class Application(Frame):
         vcarve_settings.resizable(0,0)
         vcarve_settings.title('V-Carve Settings')
         vcarve_settings.iconname("V-Carve Settings")
-
-
-        try:
-            vcarve_settings.iconbitmap(bitmap="@emblem64")
-        except:
-            try: #Attempt to create temporary icon bitmap file
-                temp_icon("f_engrave_icon")
-                vcarve_settings.iconbitmap("@f_engrave_icon")
-                os.remove("f_engrave_icon")
-            except:
-                pass
-
             
         D_Yloc  = 12
         D_dY = 24
@@ -9068,18 +8799,24 @@ class Application(Frame):
         self.Label_clean_P = Label(vcarve_settings,text="Cleanup Cut Directions")
         self.Label_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
 
-        self.Write_Clean = Button(vcarve_settings,text="Save Cleanup G-Code", command=self.Write_Clean_Click)
-        self.Write_Clean.place(x=right_but_loc, y=D_Yloc, height=height_cb, anchor="e")
+        self.Write_Clean = Button(vcarve_settings,text="Save Cleanup\nG-Code", command=self.Write_Clean_Click)
+        self.Write_Clean.place(x=right_but_loc, y=D_Yloc, width=width_cb, height=height_cb, anchor="e")
 
         self.Checkbutton_clean_P = Checkbutton(vcarve_settings,text="P", anchor=W)
         self.Checkbutton_clean_P.configure(variable=self.clean_P)
-        self.Checkbutton_clean_P.place(x=xd_entry_L, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_clean_P.place(x=xd_entry_L, y=D_Yloc, width=w_entry+40, height=23)
+
         self.Checkbutton_clean_X = Checkbutton(vcarve_settings,text="X", anchor=W)
         self.Checkbutton_clean_X.configure(variable=self.clean_X)
-        self.Checkbutton_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=w_entry+40, height=23)
+        
         self.Checkbutton_clean_Y = Checkbutton(vcarve_settings,text="Y", anchor=W)
         self.Checkbutton_clean_Y.configure(variable=self.clean_Y)
-        self.Checkbutton_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=w_entry+40, height=23)
+
+        self.Checkbutton_clean_L = Checkbutton(vcarve_settings,text="L", anchor=W)
+        self.Checkbutton_clean_L.configure(variable=self.clean_L)
+        self.Checkbutton_clean_L.place(x=xd_entry_L+check_delta*3, y=D_Yloc, width=w_entry+40, height=23)
 
         D_Yloc=D_Yloc+12
 
@@ -9098,18 +8835,25 @@ class Application(Frame):
         self.Label_v_clean_P = Label(vcarve_settings,text="V-Bit Cut Directions")
         self.Label_v_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
 
-        self.Write_V_Clean = Button(vcarve_settings,text="Save V Cleanup G-Code", command=self.Write_V_Clean_Click)
-        self.Write_V_Clean.place(x=right_but_loc, y=D_Yloc, height=height_cb, anchor="e")
+        self.Write_V_Clean = Button(vcarve_settings,text="Save V Cleanup\nG-Code", command=self.Write_V_Clean_Click)
+        self.Write_V_Clean.place(x=right_but_loc, y=D_Yloc, width=width_cb, height=height_cb, anchor="e")
 
         self.Checkbutton_v_clean_P = Checkbutton(vcarve_settings,text="P", anchor=W)
         self.Checkbutton_v_clean_P.configure(variable=self.v_clean_P)
-        self.Checkbutton_v_clean_P.place(x=xd_entry_L, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_v_clean_P.place(x=xd_entry_L, y=D_Yloc, width=w_entry+40, height=23)
+        
         self.Checkbutton_v_clean_X = Checkbutton(vcarve_settings,text="X", anchor=W)
         self.Checkbutton_v_clean_X.configure(variable=self.v_clean_X)
-        self.Checkbutton_v_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_v_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=w_entry+40, height=23)
+
         self.Checkbutton_v_clean_Y = Checkbutton(vcarve_settings,text="Y", anchor=W)
         self.Checkbutton_v_clean_Y.configure(variable=self.v_clean_Y)
-        self.Checkbutton_v_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=40, height=23)
+        self.Checkbutton_v_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=w_entry+40, height=23)
+
+        self.Checkbutton_v_clean_L = Checkbutton(vcarve_settings,text="L", anchor=W)
+        self.Checkbutton_v_clean_L.configure(variable=self.v_clean_L)
+        self.Checkbutton_v_clean_L.place(x=xd_entry_L+check_delta*3, y=D_Yloc, width=w_entry+40, height=23)
+
 
         ## V-Bit Picture ##
         self.PHOTO = PhotoImage(format='gif',data=
@@ -9578,41 +9322,7 @@ def arc_dir(plane, c, p1, p2, p3):
         ccw=False
     return ccw
 
-
-    ##############
-    #signedArea = (x2-x1)*(y2+y1) + (x3-x2)*(y3+y2) + (x1-x3)*(y1+y3)
-    #if signedArea > 0.0:
-    #    cw2=False
-    #else:
-    #    cw2=True
-    ##############
-    #R = hypot( (x1-xc), (y1-yc) )
-    #cos1 = (x1-xc)/R
-    #sin1 = (y1-yc)/R
-    #cos2 = (x2-xc)/R
-    #sin2 = (y2-yc)/R
-    #cos3 = (x3-xc)/R
-    #sin3 = (y3-yc)/R
-    #theta_start = Get_Angle(sin1, cos1)
-    #theta_mid   = Get_Angle(sin2, cos2)
-    #theta_end   = Get_Angle(sin3, cos3)
-    #if theta_mid < theta_start:
-    #    mid_angle = theta_mid - theta_start + 360.0
-    #else:
-    #    mid_angle = theta_mid - theta_start
-    #
-    #if theta_end < theta_start:
-    #    end_angle = theta_end - theta_start + 360.0
-    #else:
-    #    end_angle = theta_end - theta_start
-    # 
-    #if (end_angle > mid_angle):
-    #    cw3=True
-    #else:
-    #    cw3=False
     
-    
-
 def arc_fmt(plane, c1, c2, p1):
     x, y, z = p1
     if plane == 17:
@@ -9626,63 +9336,11 @@ def arc_fmt(plane, c1, c2, p1):
         return [c1-y, c2-z]
 
 
-
-
-def temp_icon(icon_file_name):
-    f = open(icon_file_name,'w')
-    f.write("#define f_engrave_icon_width 64\n")
-    f.write("#define f_engrave_icon_height 64\n")
-    f.write("static unsigned char f_engrave_icon_bits[] = {\n")
-    f.write("   0xff, 0xff, 0xff, 0x01, 0xc0, 0xff, 0xff, 0xff, 0xff, 0xff, 0x1f, 0x00,\n")
-    f.write("   0x00, 0xfc, 0xff, 0xff, 0xff, 0xff, 0x03, 0x00, 0x00, 0xf0, 0xff, 0xff,\n")
-    f.write("   0xff, 0xff, 0x01, 0xf0, 0x07, 0x80, 0xff, 0xff, 0xff, 0x7f, 0x00, 0xff,\n")
-    f.write("   0xff, 0x01, 0xfe, 0xff, 0xff, 0x3f, 0xe0, 0xff, 0xff, 0x0f, 0xfc, 0xff,\n")
-    f.write("   0xff, 0x0f, 0xf0, 0xff, 0xff, 0x3f, 0xf0, 0xff, 0xff, 0x07, 0xfc, 0xbf,\n")
-    f.write("   0xfc, 0x3f, 0xf0, 0xff, 0xff, 0x03, 0xff, 0x07, 0xe0, 0xff, 0xc1, 0xff,\n")
-    f.write("   0xff, 0x81, 0xff, 0x01, 0x80, 0xff, 0x83, 0xff, 0xff, 0xc0, 0xff, 0xe0,\n")
-    f.write("   0x07, 0xff, 0x07, 0xff, 0x7f, 0xf0, 0x7f, 0xfc, 0x0f, 0xfe, 0x0f, 0xff,\n")
-    f.write("   0x3f, 0xf8, 0x3f, 0xfc, 0x7f, 0xfc, 0x1f, 0xfc, 0x1f, 0xf8, 0x3f, 0x1e,\n")
-    f.write("   0x7e, 0xfc, 0x3f, 0xf8, 0x1f, 0xfc, 0x1f, 0x0f, 0xf0, 0xf8, 0x7f, 0xf0,\n")
-    f.write("   0x0f, 0xfe, 0x1f, 0xcf, 0xe1, 0xf9, 0xff, 0xe0, 0x07, 0xff, 0x9f, 0xc7,\n")
-    f.write("   0xc3, 0xf1, 0xff, 0xe0, 0x07, 0xff, 0x9f, 0xe3, 0xc7, 0xf1, 0xff, 0xe1,\n")
-    f.write("   0x87, 0xff, 0x9f, 0x07, 0xc7, 0xf3, 0xff, 0xc3, 0xc3, 0xff, 0x1f, 0x07,\n")
-    f.write("   0x8e, 0xf3, 0xff, 0xc3, 0xc3, 0xff, 0x1f, 0x0f, 0x8e, 0xf3, 0xff, 0xc7,\n")
-    f.write("   0xe1, 0xff, 0x1f, 0x9e, 0x8f, 0xf1, 0xff, 0x87, 0xe1, 0xff, 0x3f, 0xfe,\n")
-    f.write("   0xcf, 0xf1, 0xff, 0x87, 0xe0, 0xff, 0x3f, 0xfc, 0xc7, 0xf9, 0xff, 0x0f,\n")
-    f.write("   0xf0, 0xff, 0x7f, 0xf0, 0xc1, 0xff, 0xff, 0x0f, 0xf0, 0xff, 0xff, 0x00,\n")
-    f.write("   0xe0, 0xff, 0xff, 0x0f, 0xf0, 0xff, 0xff, 0x01, 0xf0, 0xff, 0xff, 0x0f,\n")
-    f.write("   0xf8, 0xff, 0xff, 0x03, 0xfc, 0xfb, 0xff, 0x1f, 0xf8, 0xff, 0xbf, 0x1f,\n")
-    f.write("   0xfe, 0xe0, 0xff, 0x1f, 0xf8, 0xff, 0x1f, 0x1e, 0x3e, 0xe0, 0xff, 0x1f,\n")
-    f.write("   0xf8, 0xff, 0x0f, 0x30, 0x06, 0xf0, 0xff, 0x1f, 0xf8, 0xff, 0x1f, 0x00,\n")
-    f.write("   0x00, 0xfc, 0xff, 0x1f, 0xf8, 0xff, 0x7f, 0x00, 0x00, 0xff, 0xff, 0x1f,\n")
-    f.write("   0xf8, 0xff, 0xff, 0x01, 0xe0, 0xff, 0xff, 0x1f, 0xf8, 0xff, 0xff, 0x0f,\n")
-    f.write("   0xf8, 0xff, 0xff, 0x1f, 0xf8, 0xff, 0xff, 0x3f, 0xfe, 0xff, 0xff, 0x1f,\n")
-    f.write("   0xf0, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xff, 0x0f, 0xf0, 0xff, 0xff, 0x3f,\n")
-    f.write("   0xfc, 0xff, 0xff, 0x8f, 0xf0, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xff, 0x8f,\n")
-    f.write("   0xe0, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xff, 0x87, 0xe1, 0xff, 0xff, 0x3f,\n")
-    f.write("   0xfc, 0xff, 0xff, 0x87, 0xc1, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xff, 0x87,\n")
-    f.write("   0xc3, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xff, 0xc3, 0xc3, 0xff, 0xff, 0x3f,\n")
-    f.write("   0xfc, 0xff, 0xff, 0xc3, 0x87, 0xff, 0xff, 0x7f, 0xfc, 0xff, 0xff, 0xe3,\n")
-    f.write("   0x87, 0xff, 0xff, 0x3f, 0xfc, 0xff, 0xff, 0xe1, 0x07, 0xff, 0xff, 0x1f,\n")
-    f.write("   0xf8, 0xff, 0xff, 0xe1, 0x0f, 0xfe, 0xff, 0x0f, 0xf0, 0xff, 0xff, 0xf0,\n")
-    f.write("   0x1f, 0xfc, 0xff, 0x07, 0xe0, 0xff, 0xff, 0xf0, 0x1f, 0xfc, 0xff, 0x83,\n")
-    f.write("   0xe1, 0xff, 0x7f, 0xf8, 0x3f, 0xf8, 0xff, 0xc1, 0xc3, 0xff, 0x1f, 0xf8,\n")
-    f.write("   0x7f, 0xf0, 0xff, 0xe0, 0x83, 0xff, 0x1f, 0xfc, 0x7f, 0xe0, 0x7f, 0xf0,\n")
-    f.write("   0x87, 0xff, 0x07, 0xfc, 0xff, 0xc0, 0x7f, 0xf8, 0x0f, 0xff, 0x07, 0xff,\n")
-    f.write("   0xff, 0x81, 0x7f, 0xfc, 0x1f, 0xfe, 0x81, 0xff, 0xff, 0x03, 0xfe, 0xfe,\n")
-    f.write("   0x1f, 0xff, 0xc1, 0xff, 0xff, 0x07, 0xf8, 0xff, 0xff, 0x3f, 0xf0, 0xff,\n")
-    f.write("   0xff, 0x0f, 0xe0, 0xff, 0xff, 0x1f, 0xf0, 0xff, 0xff, 0x3f, 0x80, 0xff,\n")
-    f.write("   0xff, 0x07, 0xfc, 0xff, 0xff, 0xff, 0x00, 0xfe, 0xff, 0x01, 0xff, 0xff,\n")
-    f.write("   0xff, 0xff, 0x03, 0xe0, 0x3f, 0x80, 0xff, 0xff, 0xff, 0xff, 0x0f, 0x00,\n")
-    f.write("   0x00, 0xf0, 0xff, 0xff, 0xff, 0xff, 0x7f, 0x00, 0x00, 0xf0, 0xff, 0xff,\n")
-    f.write("   0xff, 0xff, 0xff, 0x01, 0x00, 0xfc, 0xff, 0xff };\n")
-    f.close()
-
-
 ################################################################################
 #                          Start-up Application                                #
 ################################################################################
 root = Tk()
+#root.tk.call('tk', 'scaling', '1.25')
 app = Application(root)
 app.master.title("F-Engrave V"+version)
 app.master.iconname("F-Engrave")
@@ -9703,19 +9361,38 @@ try:
 except:
     debug_message("Font Set Failed.")
     
+################################## Set Icon  ########################################
+Icon_Set=False
+
 try:
-    try:
-        app.master.iconbitmap(r'emblem')
-    except:
-        app.master.iconbitmap(bitmap="@emblem64")
+    sroot.iconbitmap(default="emblem")
+    Icon_Set=True
 except:
-    try: #Attempt to create temporary icon bitmap file
-        temp_icon("f_engrave_icon")
-        app.master.iconbitmap(bitmap="@f_engrave_icon")
-        os.remove("f_engrave_icon")
+    Icon_Set=False
+        
+if not Icon_Set:
+    try:
+        scorch_ico_B64=b'R0lGODlhEAAQAIYAAA\
+        AAABAQEBYWFhcXFxsbGyUlJSYmJikpKSwsLC4uLi8vLzExMTMzMzc3Nzg4ODk5OTs7Oz4+PkJCQkRERE\
+        VFRUtLS0xMTE5OTlNTU1dXV1xcXGBgYGVlZWhoaGtra3FxcXR0dHh4eICAgISEhI+Pj5mZmZ2dnaKioq\
+        Ojo62tra6urrS0tLi4uLm5ub29vcLCwsbGxsjIyMzMzM/Pz9PT09XV1dbW1tjY2Nzc3OHh4eLi4uXl5e\
+        fn5+jo6Ovr6+/v7/Hx8fLy8vT09PX19fn5+fv7+/z8/P7+/v///wAAAAAAAAAAAAAAAAAAAAAAAAAAAA\
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAEKAEkALAAAAAAQABAAQAj/AJMIFBhBQYAACRIkWbgwAA\
+        4kEFEECACAxBAkGH8ESEKgBZIiAIQECBAjAA8kNwIkScKgQhAkRggAIJACCZIaJxgk2clgAY4OAAoEAO\
+        ABCIIDSZIwkIHEBw0YFAAA6IGDCBIkLAhMyICka9cAKZCIRTLEBIMkaA0MSNGjSBEVIgpESEK3LgMCI1\
+        aAWCFDA4EDSQInwaDACBEAImLwCAFARw4HFJJcgGADyZEAL3YQcMGBBpIjHx4EeIGkRoMFJgakWADABx\
+        IkPwIgcIGkdm0AMJDo1g3jQBIBRZAINyKAwxEkyHEUSMIcwYYbEgwYmQGgyI8SD5Jo327hgIIAAQ5cBs\
+        CQpHySgAA7'
+        icon_im =PhotoImage(data=scorch_ico_B64, format='gif')
+        root.call('wm', 'iconphoto', root._w, '-default', icon_im)
     except:
-        fmessage("Unable to create temporary icon file.")
+        pass
+
+#####################################################################################
 
 app.f_engrave_init()
 root.mainloop()
+
 

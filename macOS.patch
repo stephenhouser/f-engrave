@@ -1,13 +1,14 @@
---- F-Engrave-1.73_src/f-engrave.py	2020-07-06 21:57:22.000000000 -0400
-+++ f-engrave.py	2021-01-25 16:31:26.000000000 -0500
-@@ -347,6 +347,41 @@
+--- F-Engrave-1.75_src/f-engrave.py	2021-05-31 11:58:48
++++ f-engrave.py	2024-01-08 17:57:49
+@@ -354,7 +354,42 @@
+ 
  Zero       = 0.00001
  STOP_CALC = 0
- 
++
 +# macOS Patch - Stephen Houser (stephenhouser@gmail.com)
 +# Inject system font directory and default document location
 +sys.argv.extend(('--fontdir', '/Library/Fonts', '--defdir', '~/Documents'))
-+
+ 
 +# Get platform specific default font
 +def get_default_font_name():
 +    from sys import platform
@@ -42,25 +43,51 @@
  #raw_input("PAUSED: Press ENTER to continue")
  ################################################################################
  #             Function for outputting messages to different locations          #
-@@ -1825,7 +1860,7 @@
-         #    fmessage("Python Imaging Library (PIL) was not found...Bummer")
-         #    fmessage("    PIL enables more image file formats.")
+@@ -463,7 +498,7 @@
+             font[key] = Character(key)
+             font[key].stroke_list = stroke_list
+             font[key].xmax = xmax
+-        new_cmd = re.match('^\[(.*)\]\s', text)
++        new_cmd = re.match(r'^\[(.*)\]\s', text)
+         if new_cmd: #new character
+             key_tmp = new_cmd.group(1)
+             if len(new_cmd.group(1)) == 1:
+@@ -487,14 +522,14 @@
+             stroke_list = []
+             xmax, ymax = 0, 0
+ 
+-        line_cmd = re.match('^L (.*)', text)
++        line_cmd = re.match(r'^L (.*)', text)
+         if line_cmd:
+             coords = line_cmd.group(1)
+             coords = [float(n) for n in coords.split(',')]
+             stroke_list += [Line(coords)]
+             xmax = max(xmax, coords[0], coords[2])
+ 
+-        arc_cmd = re.match('^A (.*)', text)
++        arc_cmd = re.match(r'^A (.*)', text)
+         if arc_cmd:
+             coords = arc_cmd.group(1)
+             coords = [float(n) for n in coords.split(',')]
+@@ -1836,7 +1871,7 @@
+         
+             
  
 -        cmd = ["ttf2cxf_stream","TEST","STDOUT"]
 +        cmd = [ttf2cxf_stream(),"TEST","STDOUT"]
          try:
-             p = Popen(cmd, stdout=PIPE, stderr=PIPE)
-             stdout, stderr = p.communicate()
-@@ -1840,7 +1875,7 @@
+             startupinfo=None
+             if sys.platform == 'win32':
+@@ -1856,7 +1891,7 @@
              fmessage("ttf2cxf_stream executable is not present/working...Bummer")
              self.TTF_AVAIL = FALSE
  
 -        cmd = ["potrace","-v"]
 +        cmd = [potrace(),"-v"]
          try:
-             p = Popen(cmd, stdout=PIPE, stderr=PIPE)
-             stdout, stderr = p.communicate()
-@@ -2442,8 +2477,14 @@
+             startupinfo=None
+             if sys.platform == 'win32':
+@@ -2466,8 +2501,14 @@
          self.Listbox_1.bind("<Down>", self.Listbox_Key_Down)
  
          try:
@@ -77,7 +104,7 @@
          except:
              font_files=" "
          for name in font_files:
-@@ -5384,7 +5425,7 @@
+@@ -5369,7 +5410,7 @@
                  self.Checkbutton_useIMGsize.place_forget()
  
                  # Left Column #
@@ -86,7 +113,7 @@
                  w_entry=60
                  w_units=35
  
-@@ -5538,15 +5579,15 @@
+@@ -5523,15 +5564,15 @@
                  self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
  
                  Ybut=self.h-60
@@ -105,7 +132,7 @@
                  self.Input_Label.place(x=222, y=self.h-130, width=112, height=21, anchor=W)
                  self.Input_frame.place(x=222, y=self.h-110, width=self.w-455, height=75)
  
-@@ -5559,7 +5600,7 @@
+@@ -5544,7 +5585,7 @@
                  self.Label_flip.configure(text="Flip Image")
                  self.Label_mirror.configure(text="Mirror Image")
                  # Left Column #
@@ -114,7 +141,7 @@
                  w_entry=60
                  w_units=35
  
-@@ -5705,15 +5746,15 @@
+@@ -5690,15 +5731,15 @@
                  self.Recalculate.place(x=12, y=Ybut, width=95, height=30)
  
                  Ybut=self.h-60
@@ -133,7 +160,7 @@
                  self.Input_Label.place_forget()
                  self.Input_frame.place_forget()
  
-@@ -5938,7 +5979,7 @@
+@@ -5926,7 +5967,7 @@
                  option = option + "-e"
              else:
                  option = ""
@@ -142,7 +169,7 @@
                     option,
                     "-s",self.segarc.get(),
                     file_full,"STDOUT"]
-@@ -6007,14 +6048,14 @@
+@@ -6000,14 +6041,14 @@
              try:
                  #cmd = ["potrace","-b","dxf",file_full,"-o","-"]
                  if self.bmp_longcurve.get() == 1:
@@ -159,7 +186,7 @@
                         "-z", self.bmp_turnpol.get(),
                         "-t", self.bmp_turdsize.get(),
                         "-a",self.bmp_alphamax.get(),
-@@ -6051,14 +6092,14 @@
+@@ -6049,14 +6090,14 @@
                  
                      #cmd = ["potrace","-b","dxf",file_full,"-o","-"]
                      if self.bmp_longcurve.get() == 1:
@@ -176,15 +203,7 @@
                             "-z", self.bmp_turnpol.get(),
                             "-t", self.bmp_turdsize.get(),
                             "-a",self.bmp_alphamax.get(),
-@@ -8525,6 +8566,7 @@
-                 os.remove("f_engrave_icon")
-             except:
-                 pass
-+
- ################################################################################
- #                         General Settings Window                              #
- ################################################################################
-@@ -8626,18 +8668,18 @@
+@@ -8370,18 +8411,18 @@
  
          D_Yloc=D_Yloc+D_dY
          self.Label_arcfit = Label(gen_settings,text="Arc Fitting")
@@ -210,7 +229,7 @@
          self.Radio_arcfit_center.configure(variable=self.arc_fit )
  
          D_Yloc=D_Yloc+D_dY
-@@ -8669,28 +8711,25 @@
+@@ -8413,29 +8454,26 @@
          self.Checkbutton_var_dis.configure(variable=self.var_dis)
  
          D_Yloc=D_Yloc+D_dY
@@ -229,24 +248,25 @@
          self.Label_Hcalc = Label(gen_settings,text="Height Calculation")
          self.Label_Hcalc.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)        
 -
--        self.Radio_Hcalc_USE = Radiobutton(gen_settings,text="Max Used", \
--                                            value="max_use", width="110", anchor=W)
--        self.Radio_Hcalc_USE.place(x=w_label+x_radio_offset, y=D_Yloc, width=90, height=23)
--        self.Radio_Hcalc_USE.configure(variable=self.H_CALC )
--
-         self.Radio_Hcalc_ALL = Radiobutton(gen_settings,text="Max All", \
-                                             value="max_all", width="110", anchor=W)
--        self.Radio_Hcalc_ALL.place(x=w_label+x_radio_offset+90, y=D_Yloc, width=90, height=23)
++        self.Radio_Hcalc_ALL = Radiobutton(gen_settings,text="Max All", \
++                                            value="max_all", width="110", anchor=W)
 +        self.Radio_Hcalc_ALL.place(x=xd_entry_L+110, y=D_Yloc, width=90, height=23)
-         self.Radio_Hcalc_ALL.configure(variable=self.H_CALC )
-+        self.Radio_Hcalc_USE = Radiobutton(gen_settings,text="Max Used", \
-+                                            value="max_use", width="110", anchor=W)
++        self.Radio_Hcalc_ALL.configure(variable=self.H_CALC )
+         self.Radio_Hcalc_USE = Radiobutton(gen_settings,text="Max Used", \
+                                             value="max_use", width="110", anchor=W)
+-        self.Radio_Hcalc_USE.place(x=w_label+x_radio_offset, y=D_Yloc, width=90, height=23)
 +        self.Radio_Hcalc_USE.place(x=xd_entry_L, y=D_Yloc, width=90, height=23)
-+        self.Radio_Hcalc_USE.configure(variable=self.H_CALC )
+         self.Radio_Hcalc_USE.configure(variable=self.H_CALC )
  
+-        self.Radio_Hcalc_ALL = Radiobutton(gen_settings,text="Max All", \
+-                                            value="max_all", width="110", anchor=W)
+-        self.Radio_Hcalc_ALL.place(x=w_label+x_radio_offset+90, y=D_Yloc, width=90, height=23)
+-        self.Radio_Hcalc_ALL.configure(variable=self.H_CALC )
+-
          if self.input_type.get() != "text":
                  self.Entry_Fontdir.configure(state="disabled")
-@@ -8787,21 +8826,18 @@
+                 self.Fontdir.configure(state="disabled")
+@@ -8519,21 +8557,18 @@
          self.Label_cutter_type = Label(vcarve_settings,text="Cutter Type")
          self.Label_cutter_type.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
  
@@ -274,7 +294,7 @@
          self.Radio_Type_STRAIGHT.configure(variable=self.bit_shape)
  
          self.bit_shape.trace_variable("w", self.Entry_Bit_Shape_var_Callback)
-@@ -8895,7 +8931,7 @@
+@@ -8627,7 +8662,7 @@
          self.Label_BoxGap_u.place(x=w_label+x_radio_offset+175, y=D_Yloc, width=100, height=21)
  
          self.GEN_Reload = Button(vcarve_settings,text="Recalculate")
@@ -283,7 +303,7 @@
          self.GEN_Reload.bind("<ButtonRelease-1>", self.Recalculate_Click)
          
          D_Yloc=D_Yloc+D_dY+12
-@@ -9002,8 +9038,8 @@
+@@ -8734,8 +8769,8 @@
          self.Label_clean = Label(vcarve_settings,text="Cleanup Operations")
          self.Label_clean.place(x=center_loc, y=D_Yloc, width=w_label, height=21,anchor=CENTER)
  
@@ -294,55 +314,7 @@
  
          D_Yloc=D_Yloc+D_dY
          self.Label_CLEAN_DIA = Label(vcarve_settings,text="Cleanup Cut Diameter")
-@@ -9032,18 +9068,18 @@
-         self.Label_clean_P = Label(vcarve_settings,text="Cleanup Cut Directions")
-         self.Label_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
- 
--        self.Write_Clean = Button(vcarve_settings,text="Save Cleanup\nG-Code", command=self.Write_Clean_Click)
--        self.Write_Clean.place(x=right_but_loc, y=D_Yloc, width=width_cb, height=height_cb, anchor="e")
-+        self.Write_Clean = Button(vcarve_settings,text="Save Cleanup G-Code", command=self.Write_Clean_Click)
-+        self.Write_Clean.place(x=right_but_loc, y=D_Yloc, height=height_cb, anchor="e")
- 
-         self.Checkbutton_clean_P = Checkbutton(vcarve_settings,text="P", anchor=W)
-         self.Checkbutton_clean_P.configure(variable=self.clean_P)
--        self.Checkbutton_clean_P.place(x=xd_entry_L, y=D_Yloc, width=w_entry+40, height=23)
-+        self.Checkbutton_clean_P.place(x=xd_entry_L, y=D_Yloc, width=40, height=23)
-         self.Checkbutton_clean_X = Checkbutton(vcarve_settings,text="X", anchor=W)
-         self.Checkbutton_clean_X.configure(variable=self.clean_X)
--        self.Checkbutton_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=w_entry+40, height=23)
-+        self.Checkbutton_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=40, height=23)
-         self.Checkbutton_clean_Y = Checkbutton(vcarve_settings,text="Y", anchor=W)
-         self.Checkbutton_clean_Y.configure(variable=self.clean_Y)
--        self.Checkbutton_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=w_entry+40, height=23)
-+        self.Checkbutton_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=40, height=23)
- 
-         D_Yloc=D_Yloc+12
- 
-@@ -9062,18 +9098,18 @@
-         self.Label_v_clean_P = Label(vcarve_settings,text="V-Bit Cut Directions")
-         self.Label_v_clean_P.place(x=xd_label_L, y=D_Yloc, width=w_label, height=21)
- 
--        self.Write_V_Clean = Button(vcarve_settings,text="Save V Cleanup\nG-Code", command=self.Write_V_Clean_Click)
--        self.Write_V_Clean.place(x=right_but_loc, y=D_Yloc, width=width_cb, height=height_cb, anchor="e")
-+        self.Write_V_Clean = Button(vcarve_settings,text="Save V Cleanup G-Code", command=self.Write_V_Clean_Click)
-+        self.Write_V_Clean.place(x=right_but_loc, y=D_Yloc, height=height_cb, anchor="e")
- 
-         self.Checkbutton_v_clean_P = Checkbutton(vcarve_settings,text="P", anchor=W)
-         self.Checkbutton_v_clean_P.configure(variable=self.v_clean_P)
--        self.Checkbutton_v_clean_P.place(x=xd_entry_L, y=D_Yloc, width=w_entry+40, height=23)
-+        self.Checkbutton_v_clean_P.place(x=xd_entry_L, y=D_Yloc, width=40, height=23)
-         self.Checkbutton_v_clean_X = Checkbutton(vcarve_settings,text="X", anchor=W)
-         self.Checkbutton_v_clean_X.configure(variable=self.v_clean_X)
--        self.Checkbutton_v_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=w_entry+40, height=23)
-+        self.Checkbutton_v_clean_X.place(x=xd_entry_L+check_delta, y=D_Yloc, width=40, height=23)
-         self.Checkbutton_v_clean_Y = Checkbutton(vcarve_settings,text="Y", anchor=W)
-         self.Checkbutton_v_clean_Y.configure(variable=self.v_clean_Y)
--        self.Checkbutton_v_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=w_entry+40, height=23)
-+        self.Checkbutton_v_clean_Y.place(x=xd_entry_L+check_delta*2, y=D_Yloc, width=40, height=23)
- 
-         ## V-Bit Picture ##
-         self.PHOTO = PhotoImage(format='gif',data=
-@@ -9103,7 +9139,7 @@
+@@ -8848,7 +8883,7 @@
          Xbut=int(vcarve_settings.winfo_width()/2)
  
          self.VCARVE_Recalculate = Button(vcarve_settings,text="Calculate V-Carve", command=self.VCARVE_Recalculate_Click)
@@ -351,17 +323,7 @@
  
  
          if self.cut_type.get() == "v-carve":
-@@ -9641,7 +9677,8 @@
-     f.write("   0x00, 0xf0, 0xff, 0xff, 0xff, 0xff, 0x7f, 0x00, 0x00, 0xf0, 0xff, 0xff,\n")
-     f.write("   0xff, 0xff, 0xff, 0x01, 0x00, 0xfc, 0xff, 0xff };\n")
-     f.close()
--    
-+
-+
- ################################################################################
- #                          Start-up Application                                #
- ################################################################################
-@@ -9650,13 +9687,14 @@
+@@ -9310,13 +9345,14 @@
  app.master.title("F-Engrave V"+version)
  app.master.iconname("F-Engrave")
  app.master.minsize(780,540)
@@ -378,8 +340,8 @@
  
      default_font.configure(size=9)
      default_font.configure(family='arial')
---- F-Engrave-1.73_src/TTF2CXF_STREAM/Makefile	2013-07-21 23:03:00.000000000 -0400
-+++ TTF2CXF_STREAM/Makefile	2021-01-10 17:47:56.000000000 -0500
+--- F-Engrave-1.75_src/TTF2CXF_STREAM/Makefile	2013-07-21 23:03:00
++++ TTF2CXF_STREAM/Makefile	2024-01-08 17:57:26
 @@ -2,9 +2,22 @@
  # Makefile for TTF2CXF_STREAM
  # Date: 6/28/2013
@@ -410,7 +372,7 @@
  
 +osx:
 +	g++ -o ttf2cxf_stream ttf2cxf_stream.cpp -lm -I$(MAC_FREETYPE)/include/freetype2 -L$(MAC_FREETYPE)/lib -lfreetype
-+
+ 
 +clean:
 +	-@rm ttf2cxf_stream
- 
++
