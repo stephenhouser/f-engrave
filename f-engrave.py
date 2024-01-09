@@ -357,7 +357,7 @@ STOP_CALC = 0
 
 # macOS Patch - Stephen Houser (stephenhouser@gmail.com)
 # Inject system font directory and default document location
-sys.argv.extend(('--fontdir', '/Library/Fonts', '--defdir', '~/Documents'))
+sys.argv.extend(('--fontdir', '/System/Library/Fonts', '--defdir', '~/Documents'))
 
 # Get platform specific default font
 def get_default_font_name():
