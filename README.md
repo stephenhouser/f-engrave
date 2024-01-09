@@ -15,14 +15,15 @@ to run F-Engrave from a Terminal prompt.
 
 This version has been built with:
 
-* Python v3.7.6
+* Python v3.12.1
 * potrace v1.16
 * PyInstaller v3.4
 
+**NOTE: Dark mode does not work!** You will get white text on white background in the input boxes. Details are in [issue #14](https://github.com/stephenhouser/f-engrave/issues/14#top).
+
 ## What's Different With this macOS version from Scorch's Code?
 
-To make `f-engrave` look and work well on macOS there are a few minor changes 
-to Scorch's code that I've done here. 
+To make `f-engrave` look and work well on macOS there are a few minor changes to Scorch's code that I've done here.
 
 * Adds two new functions `ttf2cxf_stream()` and `potrace()` that locate their related executable files either in the *application bundle* or the local file system depending on the application bundle type. This allows these two binary files to be bundled within the macOS .app bundle.
 
@@ -108,7 +109,7 @@ In general the following `pyinstaller` command line sets up a good initial
 
 ```bash
 pyinstaller f-engrave.py --clean -y --windowed --onefile --add-binary='TTF2CXF_STREAM/ttf2cxf_stream:.' --add-binary='/usr/local/bin/potrace:.' --add-binary='/usr/local/lib/libpotrace*.dylib':.' --icon=fengrave.icns --osx-bundle-identifier='com.scorchworks.f-engrave'
-``` 
+```
 
 This does not make a very nice looking application for macOS though! To do that 
 we need to add entries to the macOS specific `Info.plist` file. These are added
@@ -151,20 +152,20 @@ F-Engrave is a text to g-code program that is written in python and is based on 
 
 ## F-Engrave Features
 
-- V-carve for outline fonts and images (images and fonts should be composed of closed section loops when v-carving) 
-- Imports DXF files 
-- Imports PBM images (with potrace helper program) 
-- Uses TTF font files (with the help of ttf2cxf_stream, not all formats are supported) 
-- Capable of exporting Scalable Vector Graphics (SVG) file 
-- Opens previously saved G-Code file and retrieve the settings and text 
-- Supports multiple lines of text with justification (Left, Right and Centered) 
-- Mirroring text (vertical) and flipping text (horizontal) 
-- Create text that follows an arc 
-- Origin selection allows user to select the location of g-code zero position 
-- Display line thickness to be used during engraving allows visualization of end result 
-- Use inches or mm as export units 
-- Customizable G-Code preamble and postamble 
-- Usable as an LinuxCNC Axis filter program (open the f-engrave.py file from within LinuxCNC Axis File-Open-f-engrave.py. when you are finished with your text select File-Write To Axis and Exit, This option only existed when executed from within Axis)
+- V-carve for outline fonts and images (images and fonts should be composed of closed section loops when v-carving)
+- Imports DXF files
+- Imports PBM images (with potrace helper program)
+- Uses TTF font files (with the help of ttf2cxf_stream, not all formats are supported)
+- Capable of exporting Scalable Vector Graphics (SVG) file
+- Opens previously saved G-Code file and retrieve the settings and text
+- Supports multiple lines of text with justification (Left, Right and Centered)
+- Mirroring text (vertical) and flipping text (horizontal)
+- Create text that follows an arc
+- Origin selection allows user to select the location of g-code zero position
+- Display line thickness to be used during engraving allows visualization of end result
+- Use inches or mm as export units
+- Customizable G-Code preamble and postamble
+- Usable as an LinuxCNC Axis filter program (open the f-engrave.py file from within LinuxCNC Axis File-Open-f-engrave.py.when you are finished with your text select File-Write To Axis and Exit, This option only existed when executed from within Axis)
 
 Please see the official [Scorchworks F-Engrave website][fengrave] for the full details.
 
