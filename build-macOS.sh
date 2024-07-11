@@ -8,7 +8,7 @@
 cd -P -- $(dirname -- "$0")/
 
 # Set this to the version of python we want to use (via pyenv)
-PYTHON_VERSION=3.12.1
+PYTHON_VERSION=3.12.2
 
 # Call getopt to validate the provided input. 
 VENV_DIR=build_env.$$
@@ -61,7 +61,8 @@ function check_failure {
 if [[ "$SETUP_ENVIRONMENT" == true ]]
 then
 	# Install HomeBrew (only if you don't have it)
-	/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+	#/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+	/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 	check_failure "Failed to install homebrew"
 
 	# Installs Python3 (which includes pip3) and freetype libraries (for ttf2cxf)
@@ -79,7 +80,7 @@ then
 		CPPFLAGS="-I/usr/local/opt/tcl-tk/include" \
 		PKG_CONFIG_PATH="/usr/local/opt/tcl-tk/lib/pkgconfig" \
 		PYTHON_CONFIGURE_OPTS="--enable-framework --with-tcltk-includes='-I$(brew --prefix tcl-tk)/include' --with-tcltk-libs='-L$(brew --prefix tcl-tk)/lib -ltcl8.6 -ltk8.6'" \
-		pyenv install ${PYENV_PYTHON_VERSION}
+		pyenv install ${PYTHON_VERSION}
 	check_failure "Failed to install Python ${PYTHON_VERSION}"
 
 	# Select Python to use
@@ -93,12 +94,18 @@ if [ "${OS}" != "Darwin" ]; then
 	fail "Um... this build script is for OSX/macOS."
 fi
 
+# Set homebrew
+export HOMEBREW_PREFIX=$(brew --prefix)
+check_failure "Homebrew not installed"
+
 # Ensure that the user installed external dependencies
 command -v freetype-config > /dev/null || fail 1 "Please rerun with -s to setup build environment"
 command -v potrace         > /dev/null || fail 1 "Please rerun with -s to setup build environment"
 
 # Use the specific python version from pyenv so we don't get hung up on the
 # system python or a user's own custom environment.
+export PATH="$(pyenv root)/shims:$PATH"
+
 PYTHON=$(command -v python3)
 PY_VER=$($PYTHON --version 2>&1 | awk '{ print $2 }')
 [[ ${PY_VER} == "${PYTHON_VERSION}" ]] || fail 1 "Packaging REQUIRES Python ${PYTHON_VERSION}. Please rerun with -s to setup build environment"

@@ -4,12 +4,17 @@
 # pyinstaller -y --clean f-engrave.spec
 # python -OO -m PyInstaller -y --clean f-engrave.spec
 #
+import os
+HOMEBREW_PREFIX = os.environ['HOMEBREW_PREFIX']
+
+POTRACE_BIN = HOMEBREW_PREFIX + '/bin/potrace'
+POTRACE_LIB = HOMEBREW_PREFIX + '/lib/libpotrace*.dylib'
 
 block_cipher = None
 
 a = Analysis(['f-engrave.py'],
              pathex=['/Users/houser/Projects/f-engrave'],
-             binaries=[('TTF2CXF_STREAM/ttf2cxf_stream', '.'), ('/opt/homebrew/bin/potrace', '.'), ('/opt/homebrew/lib/libpotrace*.dylib', '.')],
+             binaries=[('TTF2CXF_STREAM/ttf2cxf_stream', '.'), (POTRACE_BIN, '.'), (POTRACE_LIB, '.')],
              datas=[],
              hiddenimports=[],
              hookspath=[],
