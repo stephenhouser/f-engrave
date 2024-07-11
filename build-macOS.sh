@@ -94,6 +94,9 @@ if [ "${OS}" != "Darwin" ]; then
 	fail "Um... this build script is for OSX/macOS."
 fi
 
+# Hardware; x86_64 or arm64
+ARCH=$(uname -m)
+
 # Set homebrew
 export HOMEBREW_PREFIX=$(brew --prefix)
 check_failure "Homebrew not installed"
@@ -170,7 +173,7 @@ fi
 if [[ "$MAKE_DISK" = true ]]
 then
 	echo "Build macOS Disk Image..."
-	VOLNAME=F-Engrave-${VERSION}
+	VOLNAME=F-Engrave-${ARCH}-${VERSION}
 	rm ${VOLNAME}.dmg
 	hdiutil create -fs HFS+ -volname ${VOLNAME} -srcfolder ./dist ./${VOLNAME}.dmg
 	check_failure "Failed to build f-engrave dmg"
