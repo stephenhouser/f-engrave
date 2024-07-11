@@ -173,7 +173,7 @@ fi
 if [[ "$MAKE_DISK" = true ]]
 then
 	echo "Build macOS Disk Image..."
-	VOLNAME=F-Engrave-${ARCH}-${VERSION}
+	VOLNAME=F-Engrave-${VERSION}-${ARCH}
 	rm ${VOLNAME}.dmg
 	hdiutil create -fs HFS+ -volname ${VOLNAME} -srcfolder ./dist ./${VOLNAME}.dmg
 	check_failure "Failed to build f-engrave dmg"
